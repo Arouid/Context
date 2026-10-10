@@ -150,6 +150,9 @@ import/export).
 - ForeverAuras (GPL-2.0, reusable with credit): [`references/foreverauras.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/foreverauras.md)
 - EverAuras (GPL-2.0, reusable with credit): [`references/everauras.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/everauras.md);
   geometry gates (NOT, time left, stacks) are in `forever-techniques` section 1
+- Edit Mode placement (criterion 4): [LibEditMode](https://github.com/p3lim-wow/LibEditMode) (p3lim,
+  `.toc` 16001, embeddable unmodified with its LICENSE.txt; TargetedSpells uses it) is the candidate
+  library; notes in `references/addon-lessons.md`
 - Mage Kit (Finess's other addon, private repo: source of measured facts and possible pulls): its
   `docs/verified-in-game.md` and `docs/range-measurement.md`
 
