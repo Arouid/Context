@@ -198,3 +198,18 @@ import/export).
 5. Actions: glow, sound (shared media, text-to-speech), color; a minimal editor to build the
    phase-1 mage set; a preset "Mage essentials".
 6. In-game test pass against the acceptance criteria; then plan phase 2 (history and insights).
+   → done 2026-10-10 (`Actions.lua`, `Editor.lua`, `EditorWindow.lua`): a definition's `actions`
+   list, `{ on = <state name> | "cdm:<edge>", do = glow | color | show | hide | sound | speak |
+   message | chat, ... }`. Look actions hold while the state holds, visual-only states included;
+   edge actions fire once when a state goes false → true and only when Lua decided it
+   (`Conditions.CanFireActions`): never on the first look, a refresh, a kept or a hidden value.
+   Sound through `PlaySound` (a kit ID) or a guarded `PlaySoundFile` (a LibSharedMedia name or a
+   file), speech through `C_CombatAudioAlert.SpeakText` with the chat text-to-speech as fallback,
+   messages to `UIErrorsFrame` or the raid warning frame, chat to the player's own frame only. The
+   Cooldown Manager's edges (way B) fire `cdm:<edge>` actions through `Listen`, queued by the hook
+   and flushed by the refresh. The Mage essentials preset plays the ready-check chime with the
+   glow once per Clearcasting proc (criterion 2). `/context editor`: the groups and displays, each
+   state as a sentence with how the last evaluation decided it and its actions; states added from
+   eight ready-made conditions with a color, actions added or removed; a state hidden at its last
+   evaluation only takes look actions (the honesty rule). No free-form tree editing yet. Nothing
+   seen in game (rows F3 and T6 of `docs/verified-in-game.md`).
