@@ -58,6 +58,13 @@ local function Remaining(expiration, now)
     return left
 end
 
+-- The spell a game API takes: a number or a name. A { id, name } table (the contract allows it
+-- for every source) gives its id, else its name: C_Spell would throw on the table itself.
+local function SpellArg(spell)
+    if type(spell) == "table" then return spell.id or spell.name end
+    return spell
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Spell cooldowns
 ----------------------------------------------------------------------------------------------------
@@ -81,7 +88,8 @@ end
 --   duration   the LuaDurationObject for a Cooldown widget (way D), ignoring the GCD
 function Sources.SpellCooldown(spell, now, inEvent)
     local api = C_Spell
-    if not api or not api.GetSpellCooldown then return nil end
+    spell = SpellArg(spell)
+    if spell == nil or not api or not api.GetSpellCooldown then return nil end
     local info = api.GetSpellCooldown(spell)
     if info == nil then return nil end
     local snap = { known = Answer(true, "A", "cooldown-info") }
@@ -113,7 +121,8 @@ end
 --   duration   the LuaDurationObject of one recharge (way D)
 function Sources.SpellCharges(spell)
     local api = C_Spell
-    if not api or not api.GetSpellCharges then return nil end
+    spell = SpellArg(spell)
+    if spell == nil or not api or not api.GetSpellCharges then return nil end
     local info = api.GetSpellCharges(spell)
     if info == nil then return nil end
     local snap = {
@@ -128,6 +137,8 @@ end
 -- Sources.SpellUsable(spell) -> usable Answer(bool, A), noPower Answer(bool, A).
 function Sources.SpellUsable(spell)
     local api = C_Spell
+    spell = SpellArg(spell)
+    if spell == nil then return Unknown("no-spell"), Unknown("no-spell") end
     if not api or not api.IsSpellUsable then return Unknown("no-api"), Unknown("no-api") end
     local usable, noPower = api.IsSpellUsable(spell)
     if usable == nil then return Unknown("unknown-spell"), Unknown("unknown-spell") end
@@ -142,6 +153,7 @@ local rangeByKey = {}      -- spell key -> true / false (last SPELL_RANGE_CHECK_
 local rangeWatched = {}    -- spell key -> true once EnableSpellRangeCheck was asked for
 
 local function RangeKey(spell)
+    spell = SpellArg(spell)
     if type(spell) == "number" then return spell end
     if type(spell) == "string" then
         local lowered = spell:lower()
@@ -160,7 +172,7 @@ function Sources.WatchRange(spell, enable)
     if key == nil then return false end
     if enable == nil then enable = true end
     if C_Spell and C_Spell.EnableSpellRangeCheck then
-        C_Spell.EnableSpellRangeCheck(spell, enable)
+        C_Spell.EnableSpellRangeCheck(SpellArg(spell), enable)
     end
     rangeWatched[key] = enable or nil
     if not enable then rangeByKey[key] = nil end
@@ -185,12 +197,12 @@ function Sources.SpellInRange(spell, unit)
     if key ~= nil and rangeWatched[key] and rangeByKey[key] ~= nil then
         return Answer(rangeByKey[key], "B", "range-event")
     end
-    if C_Spell and C_Spell.IsSpellInRange then
-        local inRange = C_Spell.IsSpellInRange(spell, unit)
+    if key ~= nil and C_Spell and C_Spell.IsSpellInRange then
+        local inRange = C_Spell.IsSpellInRange(SpellArg(spell), unit)
         if inRange == nil then return Unknown("no-range-check") end
         return Answer(inRange == true, "A", "IsSpellInRange")
     end
-    return Unknown("no-api")
+    return Unknown(key == nil and "no-spell" or "no-api")
 end
 
 function Sources.ResetRange()
@@ -221,10 +233,12 @@ end
 -- Builds the aura part of a snapshot from AuraData found by a plain lookup.
 local function AuraFound(snap, unit, aura, way, now)
     snap.present = Answer(true, way, "found")
-    snap.auraInstanceID = aura.auraInstanceID
-    snap.spellID = aura.spellId
+    -- Identity fields are kept only when plain: Displays compares the instance ID (a secret breaks
+    -- any comparison, `~=` included), and the secret test always comes before a nil test.
+    snap.auraInstanceID = not isSecret(aura.auraInstanceID) and aura.auraInstanceID or nil
+    snap.spellID = not isSecret(aura.spellId) and aura.spellId or nil
     snap.stacks = Answer(aura.applications, "A", "applications")
-    if aura.duration ~= nil and not isSecret(aura.duration) and aura.duration == 0 then
+    if not isSecret(aura.duration) and aura.duration ~= nil and aura.duration == 0 then
         snap.remaining = Answer(nil, "A", "no-expiration")
     elseif isSecret(aura.expirationTime) then
         snap.remaining = Hidden(aura.expirationTime, "hidden")
@@ -232,8 +246,8 @@ local function AuraFound(snap, unit, aura, way, now)
         snap.remaining = Answer(Remaining(aura.expirationTime, now or GetTime()), "A", "computed")
     end
     local api, secrets = C_UnitAuras, C_Secrets
-    local id = aura.auraInstanceID
-    if api and api.GetAuraDuration and id ~= nil and not isSecret(id) then
+    local id = snap.auraInstanceID
+    if api and api.GetAuraDuration and id ~= nil then
         local instanceHidden = secrets and secrets.ShouldUnitAuraInstanceBeSecret
             and secrets.ShouldUnitAuraInstanceBeSecret(unit, id) == true
         if not instanceHidden then snap.duration = api.GetAuraDuration(unit, id) end

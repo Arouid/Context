@@ -124,6 +124,18 @@ Phase 1 (mage cooldowns and procs):
 7. [check] Lua 5.1, sizes, translations, tests. → /wow-addon-dev:check
 8. [agent] No write onto Blizzard frames, hooks post-only and per frame, nothing protected created in
    combat. → api-gotcha-reviewer
+   → Reviewed 2026-10-10 (files at commit 39d3c1d, Libs/ excluded): the three clauses hold (no write
+   onto a Blizzard frame, every hook `hooksecurefunc` per item frame, no protected frame anywhere).
+   12 findings: 5 fixed in `CooldownManager.lua` (glow events scoped to the item's spell, active
+   edges from buff items only, binding at `OnCooldownIDSet` / dropped at `ResetCooldownData`,
+   "available" derived from the never-secret `isActive` since Blizzard raises that alert only
+   with a player-set alert, hook bodies that can't throw), 4 fixed around it (`Sources.lua`,
+   `Widgets.lua`: secret test before nil test, aura identity kept only when plain, `{ id, name }`
+   spells accepted by every source; `Displays.lua`: a refresh that throws pauses that display 5 s
+   and keeps the error for the probe instead of retrying every frame, a rebuild reuses the widget
+   so no orphan stays in Edit Mode); 3 dismissed (allocation per refresh: the "100+ displays"
+   edge case, later; range-check reference counting: in-game check; `CDM.Start` once: the
+   Blizzard addon isn't load-on-demand). To re-run after step 5 (`Actions.lua`, `Editor.lua`).
 
 Later phases get their own criteria when planned (history, insights, reminders, full editor,
 import/export).

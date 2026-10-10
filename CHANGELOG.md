@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Cooldown Manager hooks reviewed against Blizzard's source (spec criterion 8, 2026-10-10): an
+  item is bound to its spell when Blizzard sets its cooldown ID (the frame is acquired before
+  that) and forgotten when the frame is released; a proc glow event only counts for the item's own
+  spell; only Tracked Buffs / Bars items give "active" edges (a cooldown item is active as soon as
+  it is bound); the "ready" state ends with the spell's never-secret cooldown flag, since Blizzard
+  only raises the "available" alert when the player set one; a hook body can't throw into
+  Blizzard's loops. Sources accept `{ id, name }` spells everywhere and keep aura identity only
+  when plain. A display whose refresh throws (a refused aura read) sits out 5 s instead of
+  retrying every frame, and `/context probe` prints the kept error; a rebuilt display reuses its
+  widget, so the first login no longer leaves hidden copies registered in Edit Mode.
 - Actions on a state change (`Actions.lua`): a display's `actions` list says what each state does.
   Glow, color, show or hide hold while the state holds (a visual-only state may have them). A sound
   (a sound kit ID, or a LibSharedMedia sound name or file when that library is loaded), spoken

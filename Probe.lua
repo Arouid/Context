@@ -82,4 +82,7 @@ function ns.Probe(arg)
     end
     local enchant = ns.Sources.WeaponEnchant(Enum and Enum.WeaponSlot and Enum.WeaponSlot.MainHand or 0)
     ns:Printf(L["main hand enchant"] .. ": %s", Describe(enchant.present))
+    -- Errors kept instead of thrown: a display's refresh (paused 5 s) and a Cooldown Manager hook body.
+    if ns.Displays and ns.Displays.lastError then ns:Printf(L["last display error: %s"], tostring(ns.Displays.lastError)) end
+    if ns.CooldownManager and ns.CooldownManager.lastError then ns:Printf(L["last hook error: %s"], tostring(ns.CooldownManager.lastError)) end
 end

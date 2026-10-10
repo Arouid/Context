@@ -1,17 +1,26 @@
 -- CooldownManager.lua: Blizzard's Cooldown Manager as an optional source of EDGES (way B). Its
--- untainted items see what our code can't in combat, and every item raises alerts on itself
--- (available, on cooldown, charge gained, aura applied / removed, pandemic) whether or not the
--- player set one. We post-hook those calls, once per item frame, and keep a per-spell state that
+-- untainted items see what our code can't in combat, and they raise alerts on themselves (on
+-- cooldown, aura applied / removed, pandemic; available and charge gained only when the player set
+-- an alert). We post-hook those calls, once per item frame, and keep a per-spell state that
 -- Displays.lua reads when a spell the player tracks there is one of ours.
 -- SPDX-License-Identifier: GPL-2.0-or-later (see LICENSE and README.md)
 --
 -- The hooking rules (forever-techniques/references/cooldown-manager.md): hooksecurefunc only, hook
 -- per frame at OnAcquireItemFrame (plus one walk of the pool at start), state in a weak-keyed table
--- of ours (never a field on a Blizzard frame), re-resolve the spell on every acquire (pooled frames
--- move), tiny hook bodies, read identity from the item (its cooldownID is never secret; the live
--- spell ID may be). Checked in Blizzard_CooldownViewer/CooldownViewer.lua (build 70245): every
--- Trigger*Alert routes through CooldownViewerItemMixin:TriggerAlertEvent(event); buff items call
--- OnActiveStateChanged; cooldown items call OnSpellActivationOverlayGlowShowEvent / HideEvent.
+-- of ours (never a field on a Blizzard frame), re-resolve the spell whenever the item is bound
+-- (pooled frames move), tiny hook bodies that can't throw into Blizzard's loops, read identity and
+-- state from the item (its cooldownID is never secret; the live spell ID may be).
+-- Checked in Blizzard_CooldownViewer (build 70245), reviewed 2026-10-10 (spec criterion 8):
+-- - a pooled frame is ACQUIRED before it gets its cooldownID (RefreshLayout, then RefreshData ->
+--   SetCooldownID -> OnCooldownIDSet), and ResetCooldownData clears it on release: the binding is
+--   made at OnCooldownIDSet and dropped at ResetCooldownData, never trusted across a release;
+-- - CooldownViewerItemMixin:ShouldBeActive is "has a cooldownID": a cooldown item is active as
+--   soon as it is bound; only a buff item's active state follows its aura (the Buff mixin);
+-- - the viewer sends every item every SPELL_ACTIVATION_OVERLAY_GLOW_SHOW / HIDE and the item
+--   returns early unless the spell is its own: a post-hook has to check the spell itself;
+-- - TriggerAvailableAlert and TriggerChargeGainedAlert run from the item's OnUpdate, registered
+--   only with a player-set alert (NeedsOnUpdateRegistration): the never-secret isActive of the
+--   spell's cooldown ends an on-cooldown state instead.
 local _, ns = ...
 
 local CDM = {}
@@ -19,12 +28,34 @@ ns.CooldownManager = CDM
 
 local isSecret = issecretvalue or function() return false end
 
-local VIEWERS = { "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer", "BuffBarCooldownViewer" }
+-- The four viewers and what their items' active state means.
+local VIEWERS = {
+    { "EssentialCooldownViewer", "cooldown" }, { "UtilityCooldownViewer", "cooldown" },
+    { "BuffIconCooldownViewer", "buff" }, { "BuffBarCooldownViewer", "buff" },
+}
 
--- Enum.CooldownViewerAlertEventType values (CooldownViewerConstantsDocumentation.lua) -> edge names.
-CDM.EVENT_EDGES = { [1] = "available", [2] = "pandemic", [3] = "onCooldown", [4] = "chargeGained", [5] = "auraApplied", [6] = "auraRemoved" }
+-- Enum.CooldownViewerAlertEventType -> edge names, from the client's enum when it has one; the
+-- literal values are build 70245's (CooldownViewerConstantsDocumentation.lua), for the headless tests.
+local EDGE_OF_EVENT = { Available = "available", PandemicTime = "pandemic", OnCooldown = "onCooldown",
+    ChargeGained = "chargeGained", OnAuraApplied = "auraApplied", OnAuraRemoved = "auraRemoved" }
+local LITERAL_EDGES = { [1] = "available", [2] = "pandemic", [3] = "onCooldown", [4] = "chargeGained", [5] = "auraApplied", [6] = "auraRemoved" }
+
+local function EventEdges()
+    local E = Enum and Enum.CooldownViewerAlertEventType
+    if type(E) ~= "table" then return LITERAL_EDGES end
+    local edges = {}
+    for name, edge in pairs(EDGE_OF_EVENT) do
+        if type(E[name]) == "number" then edges[E[name]] = edge end
+    end
+    return next(edges) and edges or LITERAL_EDGES
+end
+CDM.EVENT_EDGES = EventEdges()
+
+-- Edges that state a level: repeating one without a change in between is not a new edge.
+local LEVEL_EDGES = { active = true, inactive = true, glowShown = true, glowHidden = true }
 
 local items = setmetatable({}, { __mode = "k" })   -- item frame -> { cooldownID, spellID, keys = { ... } }
+local hooked = setmetatable({}, { __mode = "k" })  -- item frame -> "cooldown" | "buff" once its hooks are in
 local states = {}        -- key (spell ID or lowercase name) -> state table (shared between keys)
 local listeners = {}     -- fn(spellID, edge, state)
 local hookedViewers = {} -- viewer global name -> true once its acquire hook is in
@@ -51,6 +82,16 @@ function CDM.Transition(state, edge)
     elseif edge == "glowShown" then state.glow = true
     elseif edge == "glowHidden" then state.glow = false
     end
+    return state
+end
+
+-- CDM.Forget(state, kind) -> the same state with what a RELEASED item of that kind knew set back
+-- to unknown (the spec: never trusted across a release): a cooldown item owned ready / onCooldown /
+-- glow, a buff item active / pandemic. A new edge fills them again.
+function CDM.Forget(state, kind)
+    if kind == "buff" then state.active, state.pandemic = nil, nil
+    else state.ready, state.onCooldown, state.glow = nil, nil, nil end
+    state.lastEdge = "released"
     return state
 end
 
@@ -83,12 +124,38 @@ end
 -- State
 ----------------------------------------------------------------------------------------------------
 
+local function ExistingState(keys)
+    for _, k in ipairs(keys) do if states[k] then return states[k] end end
+    return nil
+end
+
 local function StateFor(keys)
-    local state
-    for _, k in ipairs(keys) do if states[k] then state = states[k] break end end
-    state = state or {}
+    local state = ExistingState(keys) or {}
     for _, k in ipairs(keys) do states[k] = state end
     return state
+end
+
+function CDM.Listen(fn) listeners[#listeners + 1] = fn end
+
+-- One edge for a spell's state: transition, timestamp, the displays told, the listeners called.
+local function Edge(state, spellID, edge)
+    if LEVEL_EDGES[edge] and state.lastEdge == edge then return end
+    CDM.Transition(state, edge)
+    state.at = GetTime and GetTime() or 0
+    if ns.Displays then ns.Displays.MarkDirty() end
+    for _, fn in ipairs(listeners) do pcall(fn, spellID, edge, state) end
+end
+
+-- The "available" alert needs a player-set alert (see the header): when the state says on
+-- cooldown and the never-secret isActive says the cooldown is over (and not on hold), that is our
+-- own "available" edge, listeners included.
+local function ReconcileReady(state)
+    if state.onCooldown ~= true or state.spellID == nil then return end
+    if not C_Spell or not C_Spell.GetSpellCooldown then return end
+    local ok, info = pcall(C_Spell.GetSpellCooldown, state.spellID)
+    if ok and type(info) == "table" and info.isActive == false and info.isEnabled ~= false then
+        Edge(state, state.spellID, "available")
+    end
 end
 
 -- CDM.Snapshot(spell) -> answers (way B) for a tracked spell, or nil when the Cooldown Manager
@@ -100,26 +167,15 @@ function CDM.Snapshot(spell)
         if type(spell) == "table" and spell.name then state = states[spell.name:lower()] end
         if not state then return nil end
     end
+    ReconcileReady(state)
     local Answer = ns.Sources.Answer
     local function one(v) if v == nil then return nil end return Answer(v, "B", "cdm-" .. tostring(state.lastEdge)) end
     return { active = one(state.active), ready = one(state.ready), onCooldown = one(state.onCooldown),
              pandemic = one(state.pandemic), glow = one(state.glow), lastEdge = state.lastEdge, at = state.at }
 end
 
-function CDM.Listen(fn) listeners[#listeners + 1] = fn end
-
-local function Fire(item, edge)
-    local info = items[item]
-    if not info or not edge then return end
-    local state = StateFor(info.keys)
-    CDM.Transition(state, edge)
-    state.at = GetTime and GetTime() or 0
-    if ns.Displays then ns.Displays.MarkDirty() end
-    for _, fn in ipairs(listeners) do pcall(fn, info.spellID, edge, state) end
-end
-
 ----------------------------------------------------------------------------------------------------
--- Hooking
+-- Binding an item frame to the spell it shows
 ----------------------------------------------------------------------------------------------------
 
 local function NameOf(id)
@@ -128,11 +184,11 @@ local function NameOf(id)
     return ok and name or nil
 end
 
--- Resolves which cooldown an item shows right now (pooled frames move): its cooldownID, then the
--- configured spell and linked spells from C_CooldownViewer.
+-- Resolve(item) -> the item's binding right now, or nil (and none kept) while it has no cooldownID:
+-- its cooldownID, then the configured spell and linked spells from C_CooldownViewer.
 local function Resolve(item)
     local ok, cooldownID = pcall(item.GetCooldownID, item)
-    if not ok or cooldownID == nil or isSecret(cooldownID) then return nil end
+    if not ok or isSecret(cooldownID) or cooldownID == nil then items[item] = nil; return nil end
     local info = items[item]
     if info and info.cooldownID == cooldownID then return info end
     local spellID, linked
@@ -148,42 +204,90 @@ local function Resolve(item)
     return info
 end
 
-local hooked = setmetatable({}, { __mode = "k" })
+-- Fire(item, edge): the edge goes to the spell the item shows RIGHT NOW (pooled frames move).
+local function Fire(item, edge)
+    local info = edge and Resolve(item)
+    if not info then return end
+    local state = StateFor(info.keys)
+    if info.spellID ~= nil then state.spellID = info.spellID end
+    Edge(state, info.spellID, edge)
+end
 
-local function HookItem(item)
-    if type(item) ~= "table" or hooked[item] then
-        if item then Resolve(item) end
-        return
-    end
-    hooked[item] = true
-    Resolve(item)
-    local hs = hooksecurefunc
-    if type(item.TriggerAlertEvent) == "function" then
-        hs(item, "TriggerAlertEvent", function(self, event) Fire(self, CDM.EdgeName(event)) end)
-    end
-    if type(item.OnActiveStateChanged) == "function" then
-        hs(item, "OnActiveStateChanged", function(self)
-            Resolve(self)
-            local ok, active = pcall(self.IsActive, self)
-            if ok and not isSecret(active) then Fire(self, active and "active" or "inactive") end
-        end)
-    end
-    if type(item.OnSpellActivationOverlayGlowShowEvent) == "function" then
-        hs(item, "OnSpellActivationOverlayGlowShowEvent", function(self) Fire(self, "glowShown") end)
-        hs(item, "OnSpellActivationOverlayGlowHideEvent", function(self) Fire(self, "glowHidden") end)
+-- Released (ResetCooldownData: the pool's reset, or a cleared cooldownID): the frame's binding
+-- goes, and what that item knew about its spell is unknown until a new edge.
+local function Unbind(item)
+    local info = items[item]
+    items[item] = nil
+    local state = info and ExistingState(info.keys)
+    if state then CDM.Forget(state, hooked[item]) end
+end
+
+-- A buff item's active state is its aura's presence (CooldownViewerBuffItemMixin:ShouldBeActive):
+-- read from the item, plain values only.
+local function ReadActive(item)
+    local ok, active = pcall(item.IsActive, item)
+    if ok and not isSecret(active) and active ~= nil then Fire(item, active and "active" or "inactive") end
+end
+
+----------------------------------------------------------------------------------------------------
+-- Hooking
+----------------------------------------------------------------------------------------------------
+
+-- Hook(item, method, fn) -> true when hooked: a post-hook whose body can't reach Blizzard's loop
+-- (an error is kept in CDM.lastError for the probe instead of aborting the viewer's other items).
+local function Hook(item, method, fn)
+    if type(item[method]) ~= "function" then return false end
+    hooksecurefunc(item, method, function(...)
+        local ok, err = pcall(fn, ...)
+        if not ok then CDM.lastError = err end
+    end)
+    return true
+end
+
+-- The glow events reach every item; only the item's own spell (or a linked one) is an edge.
+local function OnGlow(edge)
+    return function(self, spellID)
+        if isSecret(spellID) or spellID == nil then return end
+        local info = Resolve(self)
+        if not info then return end
+        for _, k in ipairs(info.keys) do
+            if k == spellID then Fire(self, edge) return end
+        end
     end
 end
 
-local function HookViewer(viewer)
+local function HookItem(item, kind)
+    if type(item) ~= "table" then return end
+    if hooked[item] then Resolve(item) return end
+    hooked[item] = kind
+    Resolve(item)
+    Hook(item, "TriggerAlertEvent", function(self, event) Fire(self, CDM.EdgeName(event)) end)
+    Hook(item, "OnCooldownIDSet", function(self)
+        Resolve(self)
+        if kind == "buff" then ReadActive(self) end
+    end)
+    Hook(item, "ResetCooldownData", Unbind)
+    Hook(item, "OnSpellActivationOverlayGlowShowEvent", OnGlow("glowShown"))
+    Hook(item, "OnSpellActivationOverlayGlowHideEvent", OnGlow("glowHidden"))
+    if kind == "buff" then
+        Hook(item, "OnActiveStateChanged", ReadActive)
+        ReadActive(item)
+    end
+end
+
+local function HookViewer(viewer, kind)
     if type(viewer) ~= "table" then return false end
     if type(viewer.OnAcquireItemFrame) == "function" then
-        hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, item) HookItem(item) end)
+        hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, item)
+            local ok, err = pcall(HookItem, item, kind)
+            if not ok then CDM.lastError = err end
+        end)
     end
     local pool = viewer.itemFramePool
     if pool and pool.EnumerateActive then
         local ok, iter, a, b = pcall(pool.EnumerateActive, pool)
         if ok and type(iter) == "function" then
-            for item in iter, a, b do HookItem(item) end
+            for item in iter, a, b do HookItem(item, kind) end
         end
     end
     return true
@@ -197,12 +301,13 @@ function CDM.Available()
 end
 
 -- CDM.Start() -> number of viewers newly hooked. Safe to call again: a viewer that wasn't there
--- yet (the Blizzard addon loading later) is picked up on the next call, one hook per viewer.
+-- yet is picked up on the next call, one hook per viewer.
 function CDM.Start()
     if type(hooksecurefunc) ~= "function" then return 0 end
     local count = 0
-    for _, name in ipairs(VIEWERS) do
-        if not hookedViewers[name] and HookViewer(_G[name]) then
+    for _, viewer in ipairs(VIEWERS) do
+        local name, kind = viewer[1], viewer[2]
+        if not hookedViewers[name] and HookViewer(_G[name], kind) then
             hookedViewers[name] = true
             count = count + 1
         end
@@ -222,4 +327,5 @@ end
 
 function CDM.Reset()
     for k in pairs(states) do states[k] = nil end
+    CDM.lastError = nil
 end

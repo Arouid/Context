@@ -28,6 +28,7 @@ local live = {}          -- id -> { def, frame, lastStates = { [stateIndex] = bo
 local order = {}         -- ids in a stable order
 local dirty = false
 local TICK = 0.2
+local PAUSE = 5          -- seconds a display whose read threw (a refused aura read, say) sits out
 
 ----------------------------------------------------------------------------------------------------
 -- Pure parts (tested headless)
@@ -276,9 +277,16 @@ function Displays.Order() return order end
 function Displays.Build(def)
     if type(def) ~= "table" or not def.id then return nil end
     local old = live[def.id]
-    if old and old.frame then old.frame:Hide() end
     local parent = ns.Groups and ns.Groups.Parent(def.group) or UIParent
-    local frame = def.type == "bar" and Widgets.Bar(parent) or Widgets.Icon(parent)
+    -- A widget of the same kind is reused (the login rebuild after the preset's first install, an
+    -- edit): a hidden orphan would otherwise stay registered in Edit Mode for good.
+    local frame = old and ((old.def.type == "bar") == (def.type == "bar")) and old.frame
+    if frame then
+        frame:SetParent(parent)
+    else
+        if old and old.frame then old.frame:Hide() end
+        frame = def.type == "bar" and Widgets.Bar(parent) or Widgets.Icon(parent)
+    end
     local entry = { def = def, frame = frame, lastStates = {} }
     live[def.id] = entry
     if not old then order[#order + 1] = def.id end
@@ -300,14 +308,21 @@ end
 
 -- Displays.RefreshAll(feed): feed = true re-feeds the duration objects (after an event; the
 -- default), false only re-reads the states and looks (the tick).
+-- A refresh that throws (a refused aura read is an error, not a nil: wow-forever-api) pauses that
+-- display for PAUSE seconds and keeps the error for /context probe; the others go on, and the
+-- dirty flag is cleared first so the next frame doesn't retry at once.
 function Displays.RefreshAll(feed)
     if feed == nil then feed = true end
+    dirty = false
     if ns.Actions then ns.Actions.Flush() end   -- the Cooldown Manager's edges queued by the hooks
+    local now = GetTime()
     for _, id in ipairs(order) do
         local entry = live[id]
-        if entry then Refresh(entry, feed) end
+        if entry and not (entry.failedAt and now - entry.failedAt < PAUSE) then
+            local ok, err = pcall(Refresh, entry, feed)
+            if ok then entry.failedAt = nil else entry.failedAt, Displays.lastError = now, err end
+        end
     end
-    dirty = false
 end
 
 function Displays.MarkDirty() dirty = true end

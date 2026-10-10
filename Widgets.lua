@@ -36,7 +36,7 @@ local function MakeTimerBinding(fontString)
     if C_StringUtil and C_StringUtil.CreateSecondsFormatter then
         local okF, formatter = Try(C_StringUtil.CreateSecondsFormatter)
         if okF and formatter then
-            Try(formatter.SetDefaultAbbreviation, formatter, Enum and Enum.SecondsFormatterAbbreviation and Enum.SecondsFormatterAbbreviation.OneLetter or 1)
+            Try(formatter.SetDefaultAbbreviation, formatter, Enum and Enum.SecondsFormatterAbbreviation and Enum.SecondsFormatterAbbreviation.OneLetter or 2)
             Try(formatter.SetDesiredUnitCount, formatter, 1)
             Try(binding.SetFormatter, binding, formatter)
         end
@@ -93,8 +93,8 @@ end
 local function SetCount(fontString, answer)
     if not fontString then return end
     local v = answer and (answer.value ~= nil and answer.value or answer.secret)
-    if v == nil then fontString:SetText("") return end
-    if not isSecret(v) and (v == 0 or v == 1) then fontString:SetText("") return end
+    if isSecret(v) then Try(fontString.SetText, fontString, v) return end   -- the secret test first: nil tests are comparisons too
+    if v == nil or v == 0 or v == 1 then fontString:SetText("") return end
     Try(fontString.SetText, fontString, v)
 end
 

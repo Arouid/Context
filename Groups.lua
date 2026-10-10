@@ -114,7 +114,9 @@ end
 -- frame). `label` is the name shown on its selection, `holder` the table whose pos is used.
 local function Register(frame, label, holder)
     local lib = Lib()
-    if not lib or registered[frame] then return false end
+    if not lib then return false end
+    -- A reused widget keeps its registration but follows its new definition (Displays.Build).
+    if registered[frame] then registered[frame] = holder return false end
     HookLibrary(lib)
     registered[frame] = holder
     local pos = holder.pos or {}
