@@ -9,7 +9,8 @@ groups fed by duration objects (`Displays.lua`, `Widgets.lua`, `Groups.lua`), th
 preset (`/context preset mage`, installed on a mage's first login), Blizzard's Cooldown Manager
 hooked as an optional source of edges for the spells tracked there (`CooldownManager.lua`), `/context edit` to drag things
 around out of combat, and `/context probe [spell]`, which prints what the sources can read about a
-spell and its aura, in and out of combat.
+spell and its aura, in and out of combat. `/context tests` opens the step-by-step in-game test
+guide (the rows of `docs/verified-in-game.md`; answers saved in `ContextDB.testGuide`).
 
 What has been seen working in game, and when: [docs/verified-in-game.md](docs/verified-in-game.md).
 

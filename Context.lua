@@ -67,6 +67,7 @@ local function Help()
     ns:Print("/context preset mage - " .. L["installs a ready-made set of displays"])
     ns:Print("/context list - " .. L["lists the displays and their active states (* = visual only)"])
     ns:Print("/context probe [spell] - " .. L["prints what the sources answer for a spell (default: Frost Nova and Clearcasting)"])
+    ns:Print("/context tests - " .. L["opens the step-by-step in-game test guide (testing)"])
     ns:Print("/context reset - " .. L["removes every display and group"])
     ns:Print("/context version - " .. L["shows the version"])
 end
@@ -83,6 +84,8 @@ function ns:Slash(msg)
     elseif cmd == "preset" and self.Preset then
         local name = (rest or ""):lower()
         if self.Preset.Install(name) then self:Printf(L["Preset installed: %s"], name) else self:Printf(L["Unknown preset: %s"], name) end
+    elseif cmd == "tests" and self.TestGuide then
+        self.TestGuide.Toggle()
     elseif cmd == "list" then
         ListDisplays()
     elseif cmd == "reset" then
@@ -106,6 +109,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "PLAYER_LOGIN" then
         if ns.Preset then ns.Preset.AutoInstall() end
         if ns.Displays then ns.Displays.Start() end
+        if ns.TestGuide then ns.TestGuide.OnLogin() end
         ns:Printf(L["loaded. Type /%s for help."], "context")
     end
 end)

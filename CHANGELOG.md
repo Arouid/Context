@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `/context tests`: a step-by-step in-game test guide (`TestGuide.lua`, `TestGuideSteps.lua`), one
+  entry per row of the test-guide tables in `docs/verified-in-game.md` (acceptance criteria 1-5,
+  the probe in each place, the Cooldown Manager edges, the preset's first-login install), grouped
+  by where you need to be, with the buttons a step needs; the answers, a note, the game build and
+  the last button's output are saved in `ContextDB.testGuide`; it opens at login while rows are
+  left.
 - Blizzard's Cooldown Manager as an optional source: its item frames are post-hooked once each
   (alerts, active state, proc glow) and the edges feed the displays as `cdmActive`, `cdmReady`,
   `cdmOnCooldown`, `cdmPandemic`, `cdmGlow`; when the game hides an aura's presence or a cooldown

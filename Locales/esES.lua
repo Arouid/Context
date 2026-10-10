@@ -56,3 +56,6 @@ L["Ice Barrier"] = "Barrera de hielo"
 L["Cooldown Manager: off"] = "Gestor de reutilizaciones: apagado"
 L["Cooldown Manager: not tracked (no edge seen yet)"] = "Gestor de reutilizaciones: sin seguimiento (ningún flanco visto)"
 L["Cooldown Manager: last edge %s, active %s, ready %s, glow %s"] = "Gestor de reutilizaciones: último flanco %s, activo %s, listo %s, brillo %s"
+
+-- TestGuide.lua (the guide itself stays in English: a testing tool)
+L["opens the step-by-step in-game test guide (testing)"] = "abre la guía de pruebas paso a paso en el juego (pruebas)"

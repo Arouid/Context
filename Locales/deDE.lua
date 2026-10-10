@@ -54,3 +54,6 @@ L["Ice Barrier"] = "Eisbarriere"
 L["Cooldown Manager: off"] = "Abklingzeiten-Manager: aus"
 L["Cooldown Manager: not tracked (no edge seen yet)"] = "Abklingzeiten-Manager: nicht verfolgt (noch keine Flanke gesehen)"
 L["Cooldown Manager: last edge %s, active %s, ready %s, glow %s"] = "Abklingzeiten-Manager: letzte Flanke %s, aktiv %s, bereit %s, Leuchten %s"
+
+-- TestGuide.lua (the guide itself stays in English: a testing tool)
+L["opens the step-by-step in-game test guide (testing)"] = "öffnet die Schritt-für-Schritt-Testanleitung im Spiel (Test)"
