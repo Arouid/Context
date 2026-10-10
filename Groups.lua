@@ -1,11 +1,11 @@
--- Groups.lua: groups of displays (grow direction, spacing), placement on screen, and the edit mode
--- that unlocks every group and standalone display for dragging. Positions are saved as offsets
--- from the screen center. Out of combat only: combat starting locks everything again.
+-- Groups.lua: groups of displays (grow direction, spacing), placement on screen, and the two ways
+-- to move things: Blizzard's Edit Mode through LibEditMode when the library is embedded, and the
+-- plain drag of /context edit as the fallback. Positions are saved as offsets from the screen
+-- center either way. Out of combat only: combat starting locks everything again.
 -- SPDX-License-Identifier: GPL-2.0-or-later (see LICENSE and README.md)
 --
 -- Group definition (ContextDB.groups[id]): { id, name, grow = "RIGHT" | "LEFT" | "UP" | "DOWN",
 -- spacing, pos = { x, y }, children = { displayId, ... } }.
--- Blizzard's Edit Mode integration (LibEditMode) is the planned next step; this is the plain drag.
 local _, ns = ...
 local L = ns.L
 
@@ -13,8 +13,8 @@ local Groups = {}
 ns.Groups = Groups
 
 local frames = {}        -- group id -> frame
-local editing = false
-local handles = setmetatable({}, { __mode = "k" })   -- frame -> its edit-mode overlay
+local editing = false    -- the plain drag's state (the library keeps its own)
+local handles = setmetatable({}, { __mode = "k" })   -- frame -> its plain-drag overlay
 
 ----------------------------------------------------------------------------------------------------
 -- Pure layout (tested headless)
@@ -49,13 +49,88 @@ function Groups.Positions(sizes, grow, spacing)
 end
 
 ----------------------------------------------------------------------------------------------------
--- Frames
+-- Positions: anchor from a saved pos, save a pos from where a frame is
 ----------------------------------------------------------------------------------------------------
 
 local function Anchor(frame, pos)
     frame:ClearAllPoints()
     frame:SetPoint("CENTER", UIParent, "CENTER", pos and pos.x or 0, pos and pos.y or 0)
 end
+
+-- SavePos(frame, holder): writes holder.pos from the frame's center, as offsets from the screen
+-- center, then re-anchors the frame on it (whatever point a drag left it on).
+local function SavePos(frame, holder)
+    local cx, cy = frame:GetCenter()
+    local ux, uy = UIParent:GetCenter()
+    if not cx or not ux then return end
+    holder.pos = { x = math.floor(cx - ux + 0.5), y = math.floor(cy - uy + 0.5) }
+    Anchor(frame, holder.pos)
+end
+
+-- ForEachMovable(fn): fn(frame, label, holder) for every group and every standalone display.
+local function ForEachMovable(fn)
+    for id, def in pairs(ns.db.groups or {}) do fn(Groups.Parent(id), def.name or id, def) end
+    for _, id in ipairs(ns.Displays.Order()) do
+        local entry = ns.Displays.Get(id)
+        if entry and not entry.def.group then fn(entry.frame, entry.def.name or id, entry.def) end
+    end
+end
+
+----------------------------------------------------------------------------------------------------
+-- Blizzard's Edit Mode (LibEditMode, embedded unmodified under Libs/ when present)
+----------------------------------------------------------------------------------------------------
+
+local registered = setmetatable({}, { __mode = "k" })   -- frame -> the table holding its pos
+local hooked = false
+
+local function Lib()
+    return LibStub and LibStub("LibEditMode", true) or nil
+end
+
+-- The library anchored the frame where the drag ended (point, x, y from UIParent); the saved
+-- position stays an offset from the screen center, so read the center back and re-anchor.
+local function OnMoved(frame)
+    local holder = registered[frame]
+    if holder then SavePos(frame, holder) end
+end
+
+local function HookLibrary(lib)
+    if hooked then return end
+    hooked = true
+    -- Entering: show what a state keeps hidden so it can be dragged; the refresh leaves the shown
+    -- state alone while editing (Groups.IsEditing). Leaving: a dirty refresh hides it again.
+    lib:RegisterCallback("enter", function()
+        ForEachMovable(function(frame) if not frame:IsShown() then frame:Show() end end)
+    end)
+    lib:RegisterCallback("exit", function() ns.Displays.MarkDirty() end)
+    -- The layout callback fires at login once Blizzard's layouts are known: re-anchor on the saved
+    -- positions (the library has no positions of its own for our frames).
+    lib:RegisterCallback("layout", function()
+        ForEachMovable(function(frame, _, holder) Anchor(frame, holder.pos) end)
+    end)
+end
+
+-- Register(frame, label, holder) -> true when the frame went into Blizzard's Edit Mode (once per
+-- frame). `label` is the name shown on its selection, `holder` the table whose pos is used.
+local function Register(frame, label, holder)
+    local lib = Lib()
+    if not lib or registered[frame] then return false end
+    HookLibrary(lib)
+    registered[frame] = holder
+    local pos = holder.pos or {}
+    lib:AddFrame(frame, OnMoved, { point = "CENTER", x = pos.x or 0, y = pos.y or 0 }, tostring(label))
+    return true
+end
+
+-- Groups.InEditMode() -> true while Blizzard's Edit Mode is open with the library loaded.
+function Groups.InEditMode()
+    local lib = Lib()
+    return lib ~= nil and lib:IsInEditMode() == true
+end
+
+----------------------------------------------------------------------------------------------------
+-- Frames
+----------------------------------------------------------------------------------------------------
 
 -- Groups.Parent(groupId) -> the group's frame (created on demand), or UIParent without a group.
 function Groups.Parent(groupId)
@@ -69,6 +144,7 @@ function Groups.Parent(groupId)
         f.groupID = groupId
         frames[groupId] = f
         Anchor(f, def.pos)
+        Register(f, def.name or groupId, def)
     end
     return f
 end
@@ -118,20 +194,13 @@ function Groups.Place(entry)
     else
         entry.frame:SetParent(UIParent)
         Anchor(entry.frame, def.pos)
+        Register(entry.frame, def.name or def.id, def)
     end
 end
 
 ----------------------------------------------------------------------------------------------------
--- Edit mode: drag to move
+-- Plain drag (/context edit): the fallback when the library isn't there
 ----------------------------------------------------------------------------------------------------
-
-local function SavePos(frame, holder)
-    local cx, cy = frame:GetCenter()
-    local ux, uy = UIParent:GetCenter()
-    if not cx or not ux then return end
-    holder.pos = { x = math.floor(cx - ux + 0.5), y = math.floor(cy - uy + 0.5) }
-    Anchor(frame, holder.pos)
-end
 
 local function Handle(frame, label, holder)
     local h = handles[frame]
@@ -156,16 +225,13 @@ local function Handle(frame, label, holder)
     return h
 end
 
-local function ForEachMovable(fn)
-    for id, def in pairs(ns.db.groups or {}) do fn(Groups.Parent(id), def.name or id, def) end
-    for _, id in ipairs(ns.Displays.Order()) do
-        local entry = ns.Displays.Get(id)
-        if entry and not entry.def.group then fn(entry.frame, entry.def.name or id, entry.def) end
-    end
-end
-
--- Groups.SetEditMode(on) -> true when the mode changed. Refused in combat.
+-- Groups.SetEditMode(on) -> true when the mode changed. Refused in combat; with the library
+-- loaded the frames belong to Blizzard's Edit Mode, so it only says where to go.
 function Groups.SetEditMode(on)
+    if Lib() then
+        ns:Print(L["The displays are in Blizzard's Edit Mode: Esc, then Edit Mode."])
+        return false
+    end
     if on and InCombatLockdown and InCombatLockdown() then
         ns:Print(L["Edit mode isn't available in combat."])
         return false
@@ -183,7 +249,9 @@ function Groups.SetEditMode(on)
     return true
 end
 
-function Groups.IsEditing() return editing end
+-- Groups.IsEditing() -> true while either edit mode is open (the refresh then keeps every display
+-- shown instead of applying its states' visibility).
+function Groups.IsEditing() return editing or Groups.InEditMode() end
 
 local combat = CreateFrame("Frame")
 pcall(combat.RegisterEvent, combat, "PLAYER_REGEN_DISABLED")

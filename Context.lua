@@ -63,7 +63,7 @@ end
 
 local function Help()
     ns:Print(L["Commands:"])
-    ns:Print("/context edit - " .. L["unlocks the displays to drag them (out of combat)"])
+    ns:Print("/context edit - " .. L["unlocks the displays to drag them (out of combat; Blizzard's Edit Mode when the library is loaded)"])
     ns:Print("/context preset mage - " .. L["installs a ready-made set of displays"])
     ns:Print("/context list - " .. L["lists the displays and their active states (* = visual only)"])
     ns:Print("/context probe [spell] - " .. L["prints what the sources answer for a spell (default: Frost Nova and Clearcasting)"])

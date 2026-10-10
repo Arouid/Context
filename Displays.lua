@@ -230,7 +230,8 @@ local function Refresh(entry, feed)
     entry.lastStates = {}
     for i, s in ipairs(states) do entry.lastStates[i] = s.active end
     entry.states, entry.inputs = states, inputs
-    if visible ~= nil then entry.frame:SetShown(visible) end
+    -- While an edit mode is open every display stays shown so it can be dragged.
+    if visible ~= nil and not (ns.Groups and ns.Groups.IsEditing()) then entry.frame:SetShown(visible) end
     local baseLook = Looks.Merge(Looks.Default(def.type), def.look)
     local look = Looks.Resolve(def.type, def.look, stateLooks)
     entry.frame:SetLook(look)

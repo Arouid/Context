@@ -20,5 +20,7 @@ License, or (at your option) any later version. It is distributed in the hope th
 useful, but WITHOUT ANY WARRANTY; see [LICENSE](LICENSE) (GPL version 2) for details.
 
 Code taken from other addons keeps its own license and author credit, marked in the file it is in.
+`Libs/LibEditMode` is [LibEditMode](https://github.com/p3lim-wow/LibEditMode) by p3lim, embedded
+unmodified under its own license (`Libs/LibEditMode/LICENSE.txt`).
 Code from GPL-2.0-only projects (WeakAuras, EverAuras) makes the addon as a whole distributable under
 GPL version 2.

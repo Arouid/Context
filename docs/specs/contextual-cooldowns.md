@@ -174,15 +174,17 @@ import/export).
    seen in game: `/context probe` is the first thing to try (see `docs/verified-in-game.md`).
 3. Displays: icon (swipe, timer text, border, glow), bar (fill from duration, spark, timer text),
    group (grow direction, spacing), Edit Mode placement.
-   → done 2026-10-10 except Blizzard's Edit Mode (`Looks.lua`, `Widgets.lua`, `Displays.lua`,
-   `Groups.lua`, `Preset.lua`): swipes, bar fills and timer texts take duration objects (the engine
+   → done 2026-10-10 (`Looks.lua`, `Widgets.lua`, `Displays.lua`, `Groups.lua`, `Preset.lua`,
+   `Libs/LibEditMode`): swipes, bar fills and timer texts take duration objects (the engine
    counts); the "Ice Barrier under 5 s" state is also drawn engine-side through a color curve on the
    duration object (Grid2's technique) so it holds when the time is hidden; a state the evaluator
    can't decide keeps its last Lua-decided value; a proc glow comes from Blizzard's
-   `ActionButtonSpellAlertTemplate` on a frame of ours. Placement is a plain drag (`/context edit`,
-   out of combat, offsets saved from the screen center); LibEditMode (criterion 4 proper) waits for
-   Finess's go on downloading the library. The "Mage essentials" preset of step 5 is already in
-   (`/context preset mage`, installed on a mage's first login). Nothing seen in game yet.
+   `ActionButtonSpellAlertTemplate` on a frame of ours. Edit Mode placement is in: every group and
+   standalone display is registered in Blizzard's Edit Mode through LibEditMode (release 18,
+   embedded unmodified with its license), positions saved as offsets from the screen center and
+   re-anchored at login; `/context edit` stays as the plain-drag fallback when the library isn't
+   loaded. The "Mage essentials" preset of step 5 is already in (`/context preset mage`, installed
+   on a mage's first login). Nothing seen in game yet.
 4. Blizzard Cooldown Manager hooks (per-frame edges) as an optional source of state changes.
 5. Actions: glow, sound (shared media, text-to-speech), color; a minimal editor to build the
    phase-1 mage set; a preset "Mage essentials".

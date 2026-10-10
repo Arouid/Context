@@ -13,6 +13,11 @@ Locales\frFR.lua
 Locales\deDE.lua
 Locales\esES.lua
 
+# Libraries, before any file of ours: LibEditMode (p3lim, embedded unmodified with its license,
+# Libs\LibEditMode\LICENSE.txt) puts the groups into Blizzard's Edit Mode. It needs LibStub.
+Libs\LibEditMode\LibStub\LibStub.lua
+Libs\LibEditMode\embed.xml
+
 Context.lua
 
 # Step 2 of the plan: the pure evaluator, then the game reads, then the /context probe command.
