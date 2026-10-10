@@ -64,6 +64,7 @@ end
 local function Help()
     ns:Print(L["Commands:"])
     ns:Print("/context edit - " .. L["unlocks the displays to drag them (out of combat; Blizzard's Edit Mode when the library is loaded)"])
+    ns:Print("/context editor - " .. L["opens the editor: states, how each is decided, actions"])
     ns:Print("/context preset mage - " .. L["installs a ready-made set of displays"])
     ns:Print("/context list - " .. L["lists the displays and their active states (* = visual only)"])
     ns:Print("/context probe [spell] - " .. L["prints what the sources answer for a spell (default: Frost Nova and Clearcasting)"])
@@ -81,6 +82,8 @@ function ns:Slash(msg)
         self.Probe(rest)
     elseif cmd == "edit" and self.Groups then
         self.Groups.SetEditMode(not self.Groups.IsEditing())
+    elseif cmd == "editor" and self.Editor then
+        self.Editor.Toggle()
     elseif cmd == "preset" and self.Preset then
         local name = (rest or ""):lower()
         if self.Preset.Install(name) then self:Printf(L["Preset installed: %s"], name) else self:Printf(L["Unknown preset: %s"], name) end

@@ -9,8 +9,13 @@ groups fed by duration objects (`Displays.lua`, `Widgets.lua`, `Groups.lua`), th
 preset (`/context preset mage`, installed on a mage's first login), Blizzard's Cooldown Manager
 hooked as an optional source of edges for the spells tracked there (`CooldownManager.lua`), `/context edit` to drag things
 around out of combat, and `/context probe [spell]`, which prints what the sources can read about a
-spell and its aura, in and out of combat. `/context tests` opens the step-by-step in-game test
-guide (the rows of `docs/verified-in-game.md`; answers saved in `ContextDB.testGuide`).
+spell and its aura, in and out of combat. A display's states carry actions (`Actions.lua`): glow,
+color, show or hide while the state holds; a sound, spoken text, a screen message or a chat line
+once when it flips, and only when Lua decided it (a hidden value never makes a sound).
+`/context editor` lists the displays, shows each state as a sentence with how it was decided, and
+adds states from ready-made conditions and actions to them. `/context tests` opens the
+step-by-step in-game test guide (the rows of `docs/verified-in-game.md`; answers saved in
+`ContextDB.testGuide`).
 
 What has been seen working in game, and when: [docs/verified-in-game.md](docs/verified-in-game.md).
 

@@ -35,6 +35,11 @@ Preset.lua
 # Step 4: Blizzard's Cooldown Manager hooked per item frame as an optional source of edges.
 CooldownManager.lua
 
+# Step 5: actions on a state change (and on the Cooldown Manager's edges), the minimal editor.
+Actions.lua
+Editor.lua
+EditorWindow.lua
+
 # Step 6: the in-game test guide (/context tests): the steps, then the window that shows them.
 TestGuideSteps.lua
 TestGuide.lua

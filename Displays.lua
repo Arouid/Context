@@ -12,6 +12,7 @@
 --     visibility = "always" | "whenPresent" | "whenOnCooldown" | "whenReady",
 --     look = { ... },                       -- over Looks.Default(type)
 --     states = { { name, when = <condition tree>, look = { ... } }, ... },
+--     actions = { { on = <state name>, do = "glow" | "sound" | ..., ... }, ... },   -- Actions.lua
 --     pos = { point, x, y } }               -- only for a display outside a group
 -- Inputs a condition may test: spell: onCooldown, ready, remaining, enabled, charges, maxCharges,
 -- usable, noPower, inRange; aura: present, missing, stacks, remaining; enchant: present, remaining,
@@ -246,6 +247,13 @@ local function Refresh(entry, feed)
     local snaps = Snapshots(def)
     local inputs = Displays.Inputs(def, snaps, Extra())
     local states, stateLooks, visible = Displays.Resolve(def, inputs, entry.lastStates)
+    if ns.Actions then
+        -- Look actions follow the active states; edge actions fire once on a false -> true change.
+        local extra, shown = ns.Actions.Looks(def, states)
+        for _, l in ipairs(extra) do stateLooks[#stateLooks + 1] = l end
+        if shown ~= nil then visible = shown end
+        ns.Actions.OnStates(entry, states)
+    end
     entry.lastStates = {}
     for i, s in ipairs(states) do entry.lastStates[i] = s.active end
     entry.states, entry.inputs = states, inputs
@@ -294,6 +302,7 @@ end
 -- default), false only re-reads the states and looks (the tick).
 function Displays.RefreshAll(feed)
     if feed == nil then feed = true end
+    if ns.Actions then ns.Actions.Flush() end   -- the Cooldown Manager's edges queued by the hooks
     for _, id in ipairs(order) do
         local entry = live[id]
         if entry then Refresh(entry, feed) end
@@ -302,6 +311,17 @@ function Displays.RefreshAll(feed)
 end
 
 function Displays.MarkDirty() dirty = true end
+
+-- Displays.Invalidate(id) -> true when the display is live: after an edit of its states or
+-- actions, the engine curve is rebuilt and the state history starts over (the next refresh is a
+-- first look: no edge action fires for what is already true).
+function Displays.Invalidate(id)
+    local entry = live[id]
+    if not entry then return false end
+    entry.curve, entry.lastStates = nil, {}
+    dirty = true
+    return true
+end
 
 local EVENTS = { "SPELL_UPDATE_COOLDOWN", "SPELL_UPDATE_CHARGES", "SPELL_UPDATE_USABLE", "PLAYER_TARGET_CHANGED",
     "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED", "SPELLS_CHANGED",
@@ -331,5 +351,6 @@ function Displays.Start()
     end)
     Displays.frame = frame
     if ns.CooldownManager then ns.CooldownManager.Start() end
+    if ns.Actions then ns.Actions.Start() end
     Displays.RefreshAll()
 end

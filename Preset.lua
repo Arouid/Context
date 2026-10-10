@@ -1,6 +1,6 @@
 -- Preset.lua: ready-made sets of displays. "Mage essentials" is the phase-1 set: the cooldown group
--- (Blink, Ice Block, Frost Nova, Counterspell, Evocation), the Clearcasting proc icon with a glow,
--- and the Ice Barrier bar that turns red under 5 s. Installed on a mage's first login with no
+-- (Blink, Ice Block, Frost Nova, Counterspell, Evocation), the Clearcasting proc icon with a glow
+-- and a sound once per proc, and the Ice Barrier bar that turns red under 5 s. Installed on a mage's first login with no
 -- displays, or with /context preset mage.
 -- SPDX-License-Identifier: GPL-2.0-or-later (see LICENSE and README.md)
 local _, ns = ...
@@ -39,7 +39,14 @@ function Preset.Mage()
         look = { size = 44 },
         pos = { x = 0, y = -140 },
         states = {
-            { name = "up", when = { test = "present", compare = "==", value = true, way = "A" }, look = { glow = true } },
+            { name = "up", when = { test = "present", compare = "==", value = true, way = "A" }, look = {} },
+        },
+        -- Criterion 2: glow + sound once per proc. 8960 is SOUNDKIT.READY_CHECK (the ready check
+        -- chime, Blizzard_SharedXML/Mainline/SoundKitConstants.lua), a plain number so the preset
+        -- never depends on the global.
+        actions = {
+            { on = "up", ["do"] = "glow" },
+            { on = "up", ["do"] = "sound", sound = 8960 },
         },
     }
     displays["mage.icebarrier"] = {
