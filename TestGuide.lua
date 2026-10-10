@@ -107,6 +107,23 @@ local ACTIONS = {
         if C_UI and C_UI.Reload then C_UI.Reload() end
         return { "Reloading the interface..." }
     end },
+    -- Row T7: a chat line on the Cooldown Manager's aura-applied edge of the Ice Barrier display,
+    -- toggled here because the editor only adds actions on states, not on edges.
+    edge_chat = { "Edge chat line", function()
+        local def = ns.db.displays and ns.db.displays["mage.icebarrier"]
+        if not def then return { "No mage.icebarrier display: press Preset mage first." } end
+        def.actions = def.actions or {}
+        for i, a in ipairs(def.actions) do
+            if a.on == "cdm:auraApplied" and a["do"] == "chat" then
+                table.remove(def.actions, i)
+                if ns.Displays then ns.Displays.Invalidate(def.id) end
+                return { "Edge chat line removed from Ice Barrier." }
+            end
+        end
+        def.actions[#def.actions + 1] = { on = "cdm:auraApplied", ["do"] = "chat", text = "{name} applied (Cooldown Manager edge)" }
+        if ns.Displays then ns.Displays.Invalidate(def.id) end
+        return { "Edge chat line added to Ice Barrier: one line per cast is expected." }
+    end },
 }
 Guide.ACTIONS = ACTIONS
 
