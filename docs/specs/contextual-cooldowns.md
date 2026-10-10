@@ -135,7 +135,15 @@ Phase 1 (mage cooldowns and procs):
    and keeps the error for the probe instead of retrying every frame, a rebuild reuses the widget
    so no orphan stays in Edit Mode); 3 dismissed (allocation per refresh: the "100+ displays"
    edge case, later; range-check reference counting: in-game check; `CDM.Start` once: the
-   Blizzard addon isn't load-on-demand). To re-run after step 5 (`Actions.lua`, `Editor.lua`).
+   Blizzard addon isn't load-on-demand).
+   → Step 5 files (`Actions.lua`, `Editor.lua`, `EditorWindow.lua`) reviewed the same day by the
+   step-5 session, fixes in commit cda38db: the three clauses hold. Messages go to `UIErrorsFrame`'s
+   native `AddMessage` only (`RaidWarningFrame:AddMessage` is Blizzard Lua that writes on the frame
+   and re-anchors Blizzard frames, so that path was removed); the editor builds a display out of
+   combat only. Two writes accepted as exceptions, both the way Blizzard means addons to use:
+   `ColorPickerFrame:SetupColorPickerAndShow` (the addon-facing API, seen working on Forever
+   2026-10-07 by Mage Kit) and the `UISpecialFrames` insert (`CloseSpecialWindows` runs under
+   `securecall`). Next re-run: when a file touches Blizzard frames again.
 
 Later phases get their own criteria when planned (history, insights, reminders, full editor,
 import/export).
