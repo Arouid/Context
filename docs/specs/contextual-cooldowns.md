@@ -96,6 +96,11 @@ out of mana.
   `## X-License` in the .toc). Why: EverAuras (a WeakAuras for Forever that works in combat, the
   closest existing design, `forever-techniques/references/everauras.md`) and WeakAuras are GPL-2.0;
   this lets Context reuse their Forever code with credit instead of re-implementing it.
+- 2026-10-10, Finess: Context keeps its own design (this spec) and **borrows pieces** from the two
+  WeakAuras forks for Forever, EverAuras and ForeverAuras (both GPL-2.0), with their notice and
+  credit kept in the copied files: the geometry gates (missing, time left, stacks, total duration),
+  animation-only glows, groups that follow secret sizes. Not a fork of either: Context stays smaller
+  (mage cooldowns and procs first, Cooldown Manager edges, history, insights).
 - 2026-10-10: history keeps only what the player did and what the game shows the player (own casts,
   own auras, own cooldowns, damage meter totals): no data about other players beyond what the game
   shows on screen.
@@ -142,6 +147,7 @@ import/export).
 - Hooking rules: [`references/cooldown-manager.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/cooldown-manager.md)
 - Engine aura containers: [`references/forevercoreskill.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/forevercoreskill.md);
   addon lessons (license-checked): [`references/addon-lessons.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/addon-lessons.md)
+- ForeverAuras (GPL-2.0, reusable with credit): [`references/foreverauras.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/foreverauras.md)
 - EverAuras (GPL-2.0, reusable with credit): [`references/everauras.md`](https://github.com/Arouid/wow-addon-workspace/blob/main/plugins/wow-addon-dev/skills/forever-techniques/references/everauras.md);
   geometry gates (NOT, time left, stacks) are in `forever-techniques` section 1
 - Mage Kit (Finess's other addon, private repo: source of measured facts and possible pulls): its
