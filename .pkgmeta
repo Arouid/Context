@@ -1,0 +1,7 @@
+package-as: Context
+ignore:
+  - CURSEFORGE.md
+  - .gitignore
+  - .gitattributes
+  - .pkgmeta
+  - docs

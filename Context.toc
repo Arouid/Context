@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: Context
+## Notes: Context, /context
+## Author: Finess
+## Version: 0.1.0
+## SavedVariables: ContextDB
+## X-License: GPL-2.0-or-later
+
+# Locales first. Locales\enUS.lua creates ns.L, whose keys are the English text; each other
+# language replaces them, on its own client only.
+Locales\enUS.lua
+Locales\frFR.lua
+Locales\deDE.lua
+Locales\esES.lua
+
+Context.lua
