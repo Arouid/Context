@@ -14,7 +14,7 @@ local L = ns.L
 local Editor = ns.Editor
 
 local WIDTH, HEIGHT, LIST_W, ROW = 660, 480, 180, 22
-local win, listChild, panel
+local win, listScroll, listChild, detailsScroll, panel
 local selected            -- the selected display id
 local pools = {}          -- kind -> { [i] = widget, used = n }
 local drafts = {}         -- "id/state" -> what the add rows hold between refreshes
@@ -119,9 +119,16 @@ local function PickColor(color, onDone)
         return false
     end
     local r, g, b, a = ns.Looks.Color(color)
+    -- The picker calls swatchFunc then opacityFunc on every change, and once while it is set up
+    -- (before Show): apply only a shown picker's new color, once per color.
+    local last
     local function Apply()
+        if not picker:IsShown() then return end
         local nr, ng, nb = picker:GetColorRGB()
         local na = picker.GetColorAlpha and picker:GetColorAlpha() or a
+        local key = table.concat({ tostring(nr), tostring(ng), tostring(nb), tostring(na) }, ",")
+        if key == last then return end
+        last = key
         onDone({ nr, ng, nb, na })
     end
     picker:SetupColorPickerAndShow({ r = r, g = g, b = b, opacity = a, hasOpacity = true,
@@ -312,7 +319,7 @@ local function Build()
     win = CreateFrame("Frame", "ContextEditor", UIParent, "BackdropTemplate")
     win:SetSize(WIDTH, HEIGHT)
     win:SetPoint("CENTER")
-    win:SetFrameStrata("DIALOG")
+    win:SetFrameStrata("HIGH")   -- under Blizzard's color picker (DIALOG)
     win:SetMovable(true)
     win:EnableMouse(true)
     win:RegisterForDrag("LeftButton")
@@ -321,32 +328,33 @@ local function Build()
     if win.SetBackdrop then
         win:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
             edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-        win:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
+        win:SetBackdropColor(0.05, 0.05, 0.08, 1)
     end
     local title = win:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", 0, -10)
     title:SetText(L["Context editor"])
     local close = CreateFrame("Button", nil, win, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
+    close:SetScript("OnClick", function() win:Hide() end)   -- not the template's HideUIPanel (refused in combat)
     local refresh = CreateFrame("Button", nil, win, "UIPanelButtonTemplate")
     refresh:SetSize(70, 20)
     refresh:SetPoint("TOPRIGHT", -30, -6)
     refresh:SetText(L["Refresh"])
     refresh:SetScript("OnClick", function() Editor.Refresh() end)
-    local list = CreateFrame("ScrollFrame", nil, win)
-    list:SetPoint("TOPLEFT", 10, -34)
-    list:SetSize(LIST_W, HEIGHT - 44)
-    listChild = CreateFrame("Frame", nil, list)
+    listScroll = CreateFrame("ScrollFrame", nil, win)
+    listScroll:SetPoint("TOPLEFT", 10, -34)
+    listScroll:SetSize(LIST_W, HEIGHT - 44)
+    listChild = CreateFrame("Frame", nil, listScroll)
     listChild:SetSize(LIST_W, 1)
-    list:SetScrollChild(listChild)
-    Wheel(list)
-    local details = CreateFrame("ScrollFrame", nil, win)
-    details:SetPoint("TOPLEFT", LIST_W + 20, -34)
-    details:SetPoint("BOTTOMRIGHT", -10, 10)
-    panel = CreateFrame("Frame", nil, details)
+    listScroll:SetScrollChild(listChild)
+    Wheel(listScroll)
+    detailsScroll = CreateFrame("ScrollFrame", nil, win)
+    detailsScroll:SetPoint("TOPLEFT", LIST_W + 20, -34)
+    detailsScroll:SetPoint("BOTTOMRIGHT", -10, 10)
+    panel = CreateFrame("Frame", nil, detailsScroll)
     panel:SetSize(WIDTH - LIST_W - 30, 1)
-    details:SetScrollChild(panel)
-    Wheel(details)
+    detailsScroll:SetScrollChild(panel)
+    Wheel(detailsScroll)
     if UISpecialFrames then table.insert(UISpecialFrames, "ContextEditor") end
     win:Hide()   -- a new frame is shown: Toggle opens it
     win:SetScript("OnShow", function() Editor.Refresh() end)
@@ -354,11 +362,20 @@ end
 
 -- Editor.Refresh(): redraws the list and the details from the saved definitions and the live
 -- states. Nothing happens while the window is closed.
+-- A pane that shrank (a state removed) keeps its scroll within the new height.
+local function Clamp(scroll)
+    local child = scroll:GetScrollChild()
+    local max = math.max((child and child:GetHeight() or 0) - (scroll:GetHeight() or 0), 0)
+    if (scroll:GetVerticalScroll() or 0) > max then scroll:SetVerticalScroll(max) end
+end
+
 function Editor.Refresh()
     if not win or not win:IsShown() then return false end
     ReleaseAll()
     RenderList()
     RenderPanel()
+    Clamp(listScroll)
+    Clamp(detailsScroll)
     return true
 end
 

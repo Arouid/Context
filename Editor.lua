@@ -137,9 +137,13 @@ local function Def(id)
     return ns.db and ns.db.displays and ns.db.displays[id]
 end
 
+-- A live display is invalidated; one that isn't built yet is built, out of combat only (Build
+-- reaches Blizzard's Edit Mode through LibEditMode).
 local function Changed(id)
     local def = Def(id)
-    if ns.Displays and def and not ns.Displays.Invalidate(id) then ns.Displays.Build(def) end
+    if ns.Displays and def and not ns.Displays.Invalidate(id) then
+        if not (InCombatLockdown and InCombatLockdown()) then ns.Displays.Build(def) end
+    end
     if Editor.Refresh then Editor.Refresh() end
 end
 

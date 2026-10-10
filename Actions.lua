@@ -12,8 +12,8 @@
 --            path or FileDataID for PlaySoundFile; channel = "Master" | "SFX" | ... (optional)
 --   speak    text: C_CombatAudioAlert.SpeakText(text, category, allowOverlap) when the game's
 --            combat audio alerts are on, else C_VoiceChat.SpeakText with the TTS settings
---   message  text, color = { r, g, b }, where = "errors" (UIErrorsFrame, default) | "raid"
---            (RaidWarningFrame), duration (raid only)
+--   message  text, color = { r, g, b }: UIErrorsFrame (its native AddMessage; never
+--            RaidWarningFrame, whose AddMessage is Blizzard Lua that re-anchors Blizzard frames)
 --   chat     text: the player's own chat frame, never a channel (solo-safe, lockdown-safe)
 --   color    color = { r, g, b, a }      glow, show, hide: no parameter
 -- A text takes {name} (the display's name) and {state}.
@@ -27,14 +27,17 @@
 -- Checked in Blizzard's Forever source (build 70245): C_CombatAudioAlert.SpeakText(text,
 -- CombatAudioAlertCategory, allowOverlap) and IsEnabled(); C_VoiceChat.SpeakText(voiceID, text,
 -- rate, volume, overlap); C_TTSSettings.GetVoiceOptionID / GetSpeechRate / GetSpeechVolume;
--- PlaySound(soundKitID, ...); UIErrorsFrame:AddMessage(text, r, g, b, a) (SimpleMessageFrameAPI);
--- RaidWarningFrame:AddMessage(text, colorInfo, displayTime) (Blizzard_RaidWarning). PlaySoundFile
--- is in neither the generated docs nor Blizzard's code: called only when it exists, under pcall.
+-- PlaySound(soundKitID, ...); UIErrorsFrame:AddMessage(text, r, g, b, a) (SimpleMessageFrameAPI).
+-- PlaySoundFile is in neither the generated docs nor Blizzard's code: called only when it exists,
+-- under pcall, and its absence is said once per session in chat.
 local _, ns = ...
+local L = ns.L
 local Conditions = ns.Conditions
 
 local Actions = {}
 ns.Actions = Actions
+
+local isSecret = issecretvalue or function() return false end
 
 Actions.KINDS = { "glow", "color", "show", "hide", "sound", "speak", "message", "chat" }
 Actions.LOOK = { glow = true, color = true, show = true, hide = true }
@@ -72,8 +75,8 @@ function Actions.Validate(action, def)
         for _, state in ipairs(def.states or {}) do if state.name == action.on then found = true end end
         if not found then return false, "unknown-state" end
     end
-    if kind == "sound" and action.sound == nil and action.file == nil then return false, "needs-sound" end
-    if (kind == "speak" or kind == "message" or kind == "chat") and type(action.text) ~= "string" then return false, "needs-text" end
+    if kind == "sound" and (action.sound == nil or action.sound == "") and (action.file == nil or action.file == "") then return false, "needs-sound" end
+    if (kind == "speak" or kind == "message" or kind == "chat") and (type(action.text) ~= "string" or action.text == "") then return false, "needs-text" end
     if kind == "color" and type(action.color) ~= "table" then return false, "needs-color" end
     return true
 end
@@ -120,7 +123,7 @@ end
 -- Actions.MatchesSpell(spell, spellID, nameOf) -> true when a display's source spell (an ID, a
 -- name or { id, name }) is the spell a Cooldown Manager edge concerns. A secret (nil) ID: never.
 function Actions.MatchesSpell(spell, spellID, nameOf)
-    if spellID == nil then return false end
+    if spellID == nil or isSecret(spellID) then return false end   -- the secret test before any compare
     local id, name
     if type(spell) == "table" then id, name = spell.id, spell.name
     elseif type(spell) == "number" then id = spell
@@ -128,7 +131,8 @@ function Actions.MatchesSpell(spell, spellID, nameOf)
     if id ~= nil and id == spellID then return true end
     if type(name) == "string" and nameOf then
         local n = nameOf(spellID)
-        return type(n) == "string" and n:lower() == name:lower()
+        if type(n) ~= "string" or isSecret(n) then return false end
+        return n:lower() == name:lower()
     end
     return false
 end
@@ -179,11 +183,28 @@ local function LSMFetch(name)
     return ok and path or nil
 end
 
+-- Plays through `fn`, with the channel only when the action names one (an explicit nil is not
+-- Blizzard's own call shape). True only when the game said the sound plays.
+local function Play(fn, what, channel)
+    local ok, success
+    if channel ~= nil then ok, success = Try(fn, what, channel) else ok, success = Try(fn, what) end
+    return ok == true and success ~= false
+end
+
+local saidNoFile = false
+
 local function Sound(action)
     local how, what = Actions.ResolveSound(action, LSMFetch)
-    if how == "kit" then return (Try(PlaySound, what, action.channel)) end
-    if how == "file" then return (Try(PlaySoundFile, what, action.channel)) end
-    return false
+    if how == "kit" then return Play(PlaySound, what, action.channel) end
+    if how ~= "file" then return false end
+    if type(PlaySoundFile) ~= "function" then
+        if not saidNoFile then
+            saidNoFile = true
+            ns:Print(L["File sounds can't play on this client (no PlaySoundFile): use a sound kit ID."])
+        end
+        return false
+    end
+    return Play(PlaySoundFile, what, action.channel)
 end
 
 -- The game's combat audio alerts when the player has them on, else the chat text-to-speech.
@@ -193,7 +214,8 @@ local function Speak(text)
         local okE, enabled = Try(alerts.IsEnabled)
         if okE and enabled == true then
             local E = Enum and Enum.CombatAudioAlertCategory
-            return (Try(alerts.SpeakText, text, E and E.General or 0, true))
+            local ok, utterance = Try(alerts.SpeakText, text, E and E.General or 0, true)
+            return ok == true and utterance ~= nil   -- an utterance ID means it spoke
         end
     end
     local voice, tts = C_VoiceChat, C_TTSSettings
@@ -205,11 +227,9 @@ local function Speak(text)
     return (Try(voice.SpeakText, okV and voiceID or 0, text, okR and rate or 0, okVol and volume or 100, true))
 end
 
+-- UIErrorsFrame only: its AddMessage is the native MessageFrame method, no Blizzard Lua runs.
 local function Message(action, text)
     local c = action.color or { 1, 0.82, 0, 1 }
-    if action.where == "raid" and RaidWarningFrame and RaidWarningFrame.AddMessage then
-        return (Try(RaidWarningFrame.AddMessage, RaidWarningFrame, text, { r = c[1], g = c[2], b = c[3] }, action.duration))
-    end
     if UIErrorsFrame and UIErrorsFrame.AddMessage then
         return (Try(UIErrorsFrame.AddMessage, UIErrorsFrame, text, c[1], c[2], c[3], c[4] or 1))
     end
@@ -247,7 +267,8 @@ function Actions.OnStates(entry, states)
     if not def.actions or #def.actions == 0 then return 0 end
     local count = 0
     for _, hit in ipairs(Actions.Edges(def, entry.lastStates, states)) do
-        if Actions.Fire(hit.action, Context(entry, hit.state)) then count = count + 1 end
+        local ok, ran = pcall(Actions.Fire, hit.action, Context(entry, hit.state))   -- never aborts a refresh
+        if ok and ran then count = count + 1 end
     end
     return count
 end
@@ -273,18 +294,24 @@ function Actions.Start()
     return true
 end
 
--- Actions.Flush() -> how many actions fired for the edges queued since the last flush.
+-- Actions.Flush() -> how many actions fired for the edges queued since the last flush. The same
+-- (spell, edge) raised by two item frames (a buff tracked as an icon and as a bar) fires once.
 function Actions.Flush()
     if #pending == 0 or not ns.Displays then return 0 end
     local queue = pending
     pending = {}
-    local count = 0
+    local count, seen = 0, {}
     for _, e in ipairs(queue) do
-        for _, id in ipairs(ns.Displays.Order()) do
-            local entry = ns.Displays.Get(id)
-            if entry and entry.def.actions then
-                for _, hit in ipairs(Actions.CdmEdges(entry.def, e.spellID, e.edge, NameOf)) do
-                    if Actions.Fire(hit.action, Context(entry, hit.state)) then count = count + 1 end
+        local key = tostring(e.spellID) .. ":" .. tostring(e.edge)
+        if e.spellID ~= nil and not isSecret(e.spellID) and not seen[key] then
+            seen[key] = true
+            for _, id in ipairs(ns.Displays.Order()) do
+                local entry = ns.Displays.Get(id)
+                if entry and entry.def.actions then
+                    for _, hit in ipairs(Actions.CdmEdges(entry.def, e.spellID, e.edge, NameOf)) do
+                        local ok, ran = pcall(Actions.Fire, hit.action, Context(entry, hit.state))
+                        if ok and ran then count = count + 1 end
+                    end
                 end
             end
         end

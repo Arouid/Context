@@ -16,7 +16,7 @@
   Glow, color, show or hide hold while the state holds (a visual-only state may have them). A sound
   (a sound kit ID, or a LibSharedMedia sound name or file when that library is loaded), spoken
   text (the game's combat audio alerts, else the chat text-to-speech), a screen message
-  (UIErrorsFrame or the raid warning frame) or a chat line in your own chat frame fire once when
+  (UIErrorsFrame) or a chat line in your own chat frame fire once when
   the state goes from false to true, and only when Lua decided it: a hidden value never makes a
   sound. An action on `cdm:<edge>` listens to Blizzard's Cooldown Manager for the display's spell.
   The Mage essentials preset plays the ready-check chime once per Clearcasting proc, with the glow.
