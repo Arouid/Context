@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Displays: icons (swipe, timer text, stacks, border, proc glow, out-of-range tint) and bars (fill,
+  spark, name, timer text) fed with duration objects so the engine keeps counting when the numbers
+  are hidden; states (a condition tree plus the look it adds) merged over a base look; a "remaining
+  under X seconds" color state also drawn by the engine through a color curve; groups growing
+  left, right, up or down with spacing; `/context edit` to drag groups and standalone displays out
+  of combat; `/context list`, `/context reset`.
+- "Mage essentials" preset (`/context preset mage`, installed on a mage's first login with no
+  displays): Blink, Ice Block, Frost Nova, Counterspell and Evocation cooldown icons in a group,
+  the Clearcasting proc icon with a glow, the Ice Barrier bar turning red under 5 s.
 - Sources: spell cooldowns (never-secret isActive / isEnabled / isOnGCD, remaining time when plain,
   duration objects for widgets), charges, usable, range (the SPELL_RANGE_CHECK_UPDATE event first,
   IsSpellInRange as fallback), auras on a unit (by spell ID after asking C_Secrets, by name only

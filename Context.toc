@@ -19,3 +19,10 @@ Context.lua
 Conditions.lua
 Sources.lua
 Probe.lua
+
+# Step 3: looks and widgets, the display engine, groups and edit mode, the ready-made sets.
+Looks.lua
+Widgets.lua
+Displays.lua
+Groups.lua
+Preset.lua
