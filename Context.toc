@@ -14,3 +14,8 @@ Locales\deDE.lua
 Locales\esES.lua
 
 Context.lua
+
+# Step 2 of the plan: the pure evaluator, then the game reads, then the /context probe command.
+Conditions.lua
+Sources.lua
+Probe.lua

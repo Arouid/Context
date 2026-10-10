@@ -34,12 +34,16 @@ function ns:Printf(fmt, ...)
 end
 
 function ns:Slash(msg)
-    local cmd = ((msg or ""):match("^%s*(%S*)") or ""):lower()
+    local cmd, rest = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
+    cmd = (cmd or ""):lower()
     if cmd == "version" then
         self:Printf(L["version %s"], self.VERSION)
+    elseif cmd == "probe" and self.Probe then
+        self.Probe(rest)
     else
         self:Print(L["Commands:"])
         self:Print("/context version - " .. L["shows the version"])
+        self:Print("/context probe [spell] - " .. L["prints what the sources answer for a spell (default: Frost Nova and Clearcasting)"])
     end
 end
 

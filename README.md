@@ -2,6 +2,11 @@
 
 A World of Warcraft addon (forever). Type `/context` in game.
 
+Contextual cooldowns and auras for WoW: Forever, where most combat values are hidden from addons:
+the spec is [docs/specs/contextual-cooldowns.md](docs/specs/contextual-cooldowns.md). So far:
+the sources (`Sources.lua`), the condition evaluator (`Conditions.lua`) and `/context probe [spell]`,
+which prints what the sources can read about a spell and its aura, in and out of combat.
+
 What has been seen working in game, and when: [docs/verified-in-game.md](docs/verified-in-game.md).
 
 ## License

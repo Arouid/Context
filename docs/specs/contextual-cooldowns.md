@@ -159,8 +159,13 @@ import/export).
 ## Plan (2026-10-10, phase 1 only; one session per task)
 
 1. Create the addon (`/wow-addon-dev:new-addon <Name>`, linked into the game), saved data with schema.
+   → done 2026-10-10.
 2. Sources: spell cooldown (duration object, charges, usable, range), aura (instance-ID filters +
    duration object), weapon enchant. Pure condition evaluator with the A-E classification + tests.
+   → done 2026-10-10 (`Sources.lua`, `Conditions.lua`, `Probe.lua`, `tests/test_Context.lua`:
+   criterion 6 passes headless). Every read answers in three values plus its way; an answer the
+   predicates declared hidden (E) counts as hidden, so the condition goes visual-only (D). Not yet
+   seen in game: `/context probe` is the first thing to try (see `docs/verified-in-game.md`).
 3. Displays: icon (swipe, timer text, border, glow), bar (fill from duration, spark, timer text),
    group (grow direction, spacing), Edit Mode placement.
 4. Blizzard Cooldown Manager hooks (per-frame edges) as an optional source of state changes.
