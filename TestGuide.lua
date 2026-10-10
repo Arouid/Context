@@ -101,6 +101,7 @@ local ACTIONS = {
     list = { "List displays", Command("list") },
     preset = { "Preset mage", Command("preset mage") },
     edit = { "Edit", Command("edit") },
+    editor = { "Editor", Command("editor") },
     reset = { "Reset displays", Command("reset") },
     reload = { "Reload UI", function()
         if C_UI and C_UI.Reload then C_UI.Reload() end
