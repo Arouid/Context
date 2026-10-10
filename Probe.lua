@@ -19,6 +19,23 @@ local function Describe(answer)
     return string.format("%s (%s)", tostring(answer.value), answer.way or "?")
 end
 
+-- What Blizzard's Cooldown Manager said about the spell, when the player tracks it there.
+local function PrintEdges(spell)
+    local cdm = ns.CooldownManager
+    if not cdm then return end
+    if not cdm.Available() then
+        ns:Print("  " .. L["Cooldown Manager: off"])
+        return
+    end
+    local snap = cdm.Snapshot(spell)
+    if not snap then
+        ns:Print("  " .. L["Cooldown Manager: not tracked (no edge seen yet)"])
+        return
+    end
+    ns:Printf("  " .. L["Cooldown Manager: last edge %s, active %s, ready %s, glow %s"],
+        tostring(snap.lastEdge), Describe(snap.active), Describe(snap.ready), Describe(snap.glow))
+end
+
 local function PrintSpell(spell)
     local cd = ns.Sources.SpellCooldown(spell, GetTime())
     if cd == nil then
@@ -38,11 +55,13 @@ local function PrintSpell(spell)
     local usable, noPower = ns.Sources.SpellUsable(spell)
     ns:Printf("  " .. L["usable"] .. " %s, " .. L["no power"] .. " %s, " .. L["in range"] .. " %s",
         Describe(usable), Describe(noPower), Describe(ns.Sources.SpellInRange(spell)))
+    PrintEdges(spell)
 end
 
 local function PrintAura(unit, spell)
     local aura = ns.Sources.Aura(unit, spell, "HELPFUL", GetTime())
     ns:Printf("%s " .. L["on %s"] .. ": " .. L["present"] .. " %s", tostring(spell), unit, Describe(aura.present))
+    PrintEdges(spell)
     if aura.present and aura.present.value == true then
         ns:Printf("  " .. L["stacks"] .. " %s, " .. L["remaining"] .. " %s, " .. L["duration object: %s"],
             Describe(aura.stacks), Describe(aura.remaining), aura.duration and L["plain"] or L["not read"])

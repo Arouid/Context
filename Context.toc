@@ -31,3 +31,6 @@ Widgets.lua
 Displays.lua
 Groups.lua
 Preset.lua
+
+# Step 4: Blizzard's Cooldown Manager hooked per item frame as an optional source of edges.
+CooldownManager.lua

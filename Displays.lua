@@ -15,7 +15,8 @@
 --     pos = { point, x, y } }               -- only for a display outside a group
 -- Inputs a condition may test: spell: onCooldown, ready, remaining, enabled, charges, maxCharges,
 -- usable, noPower, inRange; aura: present, missing, stacks, remaining; enchant: present, remaining,
--- charges; always: combat, hasTarget.
+-- charges; always: combat, hasTarget; from Blizzard's Cooldown Manager when it tracks the spell
+-- (CooldownManager.lua, way B): cdmActive, cdmReady, cdmOnCooldown, cdmPandemic, cdmGlow.
 local _, ns = ...
 local Sources, Conditions, Looks, Widgets = ns.Sources, ns.Conditions, ns.Looks, ns.Widgets
 
@@ -62,6 +63,23 @@ function Displays.Inputs(def, snaps, extra)
         if e then inputs.present, inputs.missing, inputs.remaining, inputs.charges = e.present, Flip(e.present), e.remaining, e.charges end
     end
     if extra then inputs.combat, inputs.hasTarget = extra.combat, extra.hasTarget end
+    Displays.MergeEdges(inputs, snaps.cdm)
+    return inputs
+end
+
+-- Displays.MergeEdges(inputs, cdm): the Cooldown Manager's edges (way B) for a tracked spell. They
+-- add cdmActive / cdmReady / cdmOnCooldown / cdmPandemic / cdmGlow, and they REPLACE a presence or
+-- a cooldown state the sources couldn't read (hidden): Blizzard's item saw the aura come and go.
+function Displays.MergeEdges(inputs, cdm)
+    if type(cdm) ~= "table" then return inputs end
+    inputs.cdmActive, inputs.cdmReady, inputs.cdmOnCooldown = cdm.active, cdm.ready, cdm.onCooldown
+    inputs.cdmPandemic, inputs.cdmGlow = cdm.pandemic, cdm.glow
+    if cdm.active and (inputs.present == nil or inputs.present.hidden) then
+        inputs.present, inputs.missing = cdm.active, Flip(cdm.active)
+    end
+    if cdm.onCooldown and (inputs.onCooldown == nil or inputs.onCooldown.hidden) then
+        inputs.onCooldown, inputs.ready = cdm.onCooldown, Flip(cdm.onCooldown)
+    end
     return inputs
 end
 
@@ -123,6 +141,7 @@ local function Snapshots(def)
     elseif src.kind == "enchant" then
         snaps.enchant = Sources.WeaponEnchant(src.slot or 0)
     end
+    if ns.CooldownManager and src.spell ~= nil then snaps.cdm = ns.CooldownManager.Snapshot(src.spell) end
     return snaps
 end
 
@@ -311,5 +330,6 @@ function Displays.Start()
         end
     end)
     Displays.frame = frame
+    if ns.CooldownManager then ns.CooldownManager.Start() end
     Displays.RefreshAll()
 end

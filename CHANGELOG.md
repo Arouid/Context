@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Blizzard's Cooldown Manager as an optional source: its item frames are post-hooked once each
+  (alerts, active state, proc glow) and the edges feed the displays as `cdmActive`, `cdmReady`,
+  `cdmOnCooldown`, `cdmPandemic`, `cdmGlow`; when the game hides an aura's presence or a cooldown
+  state, a tracked spell's edge stands in, so a tracked bar hides mid-fight when its aura ends.
+  `/context probe` shows the last edge seen for a spell.
 - Displays: icons (swipe, timer text, stacks, border, proc glow, out-of-range tint) and bars (fill,
   spark, name, timer text) fed with duration objects so the engine keeps counting when the numbers
   are hidden; states (a condition tree plus the look it adds) merged over a base look; a "remaining

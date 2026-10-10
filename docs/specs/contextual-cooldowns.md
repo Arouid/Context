@@ -186,6 +186,15 @@ import/export).
    loaded. The "Mage essentials" preset of step 5 is already in (`/context preset mage`, installed
    on a mage's first login). Nothing seen in game yet.
 4. Blizzard Cooldown Manager hooks (per-frame edges) as an optional source of state changes.
+   → done 2026-10-10 (`CooldownManager.lua`): the four viewers' `OnAcquireItemFrame` post-hooked
+   plus one walk of each item pool; per item, once, `TriggerAlertEvent` (available, pandemic, on
+   cooldown, charge gained, aura applied / removed), `OnActiveStateChanged` (active / inactive) and
+   the proc-glow show / hide events; identity from the item's cooldownID through
+   `C_CooldownViewer.GetCooldownViewerCooldownInfo`, keyed by spell ID, linked IDs and lowercase
+   name (ranks); state in weak tables of ours, re-resolved on every acquire. Displays get
+   `cdmActive`, `cdmReady`, `cdmOnCooldown`, `cdmPandemic`, `cdmGlow` (way B), and a presence or
+   cooldown state the sources couldn't read takes the edge instead (a tracked Ice Barrier bar now
+   hides mid-fight when the aura ends). `/context probe` prints the last edge. Nothing seen in game.
 5. Actions: glow, sound (shared media, text-to-speech), color; a minimal editor to build the
    phase-1 mage set; a preset "Mage essentials".
 6. In-game test pass against the acceptance criteria; then plan phase 2 (history and insights).

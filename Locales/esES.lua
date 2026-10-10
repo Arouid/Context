@@ -51,3 +51,8 @@ L["The displays are in Blizzard's Edit Mode: Esc, then Edit Mode."] = "Los indic
 L["Mage cooldowns"] = "Reutilizaciones del mago"
 L["Clearcasting"] = "Mente despejada"
 L["Ice Barrier"] = "Barrera de hielo"
+
+-- CooldownManager.lua (via Probe.lua)
+L["Cooldown Manager: off"] = "Gestor de reutilizaciones: apagado"
+L["Cooldown Manager: not tracked (no edge seen yet)"] = "Gestor de reutilizaciones: sin seguimiento (ningún flanco visto)"
+L["Cooldown Manager: last edge %s, active %s, ready %s, glow %s"] = "Gestor de reutilizaciones: último flanco %s, activo %s, listo %s, brillo %s"

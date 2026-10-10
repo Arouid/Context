@@ -49,3 +49,8 @@ L["The displays are in Blizzard's Edit Mode: Esc, then Edit Mode."] = "Die Anzei
 L["Mage cooldowns"] = "Magier-Abklingzeiten"
 L["Clearcasting"] = "Freizaubern"
 L["Ice Barrier"] = "Eisbarriere"
+
+-- CooldownManager.lua (via Probe.lua)
+L["Cooldown Manager: off"] = "Abklingzeiten-Manager: aus"
+L["Cooldown Manager: not tracked (no edge seen yet)"] = "Abklingzeiten-Manager: nicht verfolgt (noch keine Flanke gesehen)"
+L["Cooldown Manager: last edge %s, active %s, ready %s, glow %s"] = "Abklingzeiten-Manager: letzte Flanke %s, aktiv %s, bereit %s, Leuchten %s"

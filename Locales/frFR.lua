@@ -49,3 +49,8 @@ L["The displays are in Blizzard's Edit Mode: Esc, then Edit Mode."] = "Les affic
 L["Mage cooldowns"] = "Recharges du mage"
 L["Clearcasting"] = "Clairvoyance"
 L["Ice Barrier"] = "Barrière de glace"
+
+-- CooldownManager.lua (via Probe.lua)
+L["Cooldown Manager: off"] = "Gestionnaire de recharges : désactivé"
+L["Cooldown Manager: not tracked (no edge seen yet)"] = "Gestionnaire de recharges : non suivi (aucun front vu)"
+L["Cooldown Manager: last edge %s, active %s, ready %s, glow %s"] = "Gestionnaire de recharges : dernier front %s, actif %s, prêt %s, lueur %s"
