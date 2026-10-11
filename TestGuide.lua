@@ -100,6 +100,7 @@ local ACTIONS = {
     probe_barrier = { "Probe Ice Barrier", Command("probe Ice Barrier") },
     probe_cs = { "Probe Counterspell", Command("probe Counterspell") },
     list = { "List displays", Command("list") },
+    why = { "Why (sizes, anchors)", Command("why") },
     preset = { "Preset mage", Command("preset mage") },
     edit = { "Edit", Command("edit") },
     editor = { "Editor", Command("editor") },

@@ -47,8 +47,14 @@ local function ListDisplays()
             for i, s in ipairs(entry.states or {}) do
                 if s.active then on[#on + 1] = (entry.def.states[i].name or tostring(i)) .. (s.visualOnly and "*" or "") end
             end
-            ns:Printf("  %s (%s) %s %s", id, entry.def.type, entry.frame:IsShown() and L["shown"] or L["hidden"], table.concat(on, ", "))
+            -- The frame's size, anchor and place on screen come with each line (Why.lua): seven
+            -- displays "shown" with one icon on screen is what the first in-game session saw.
+            local facts = ns.Why and (", " .. ns.Why.Summary(entry.frame)) or ""
+            ns:Printf("  %s (%s) %s%s %s", id, entry.def.type, entry.frame:IsShown() and L["shown"] or L["hidden"], facts, table.concat(on, ", "))
         end
+    end
+    if ns.Why and ns.Groups then
+        for gid in pairs(ns.db.groups) do ns:Printf("  %s %s: %s", L["group"], gid, ns.Why.Summary(ns.Groups.Parent(gid))) end
     end
 end
 
@@ -67,6 +73,7 @@ local function Help()
     ns:Print("/context editor - " .. L["opens the editor: states, how each is decided, actions"])
     ns:Print("/context preset mage - " .. L["installs a ready-made set of displays"])
     ns:Print("/context list - " .. L["lists the displays and their active states (* = visual only)"])
+    ns:Print("/context why [displayId] - " .. L["prints a display's size, anchor, parent, alpha and shown state (all of them without an id)"])
     ns:Print("/context probe [spell] - " .. L["prints what the sources answer for a spell (default: Frost Nova and Clearcasting)"])
     ns:Print("/context tests - " .. L["opens the step-by-step in-game test guide (testing)"])
     ns:Print("/context reset - " .. L["removes every display and group"])
@@ -91,6 +98,8 @@ function ns:Slash(msg)
         self.TestGuide.Toggle()
     elseif cmd == "list" then
         ListDisplays()
+    elseif cmd == "why" and self.Why then
+        if rest ~= "" then self.Why.Print(rest) else self.Why.PrintAll() end
     elseif cmd == "reset" then
         ResetAll()
     else

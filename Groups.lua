@@ -52,17 +52,55 @@ end
 -- Positions: anchor from a saved pos, save a pos from where a frame is
 ----------------------------------------------------------------------------------------------------
 
+-- Groups.Clamp(x, y, w, h, screenW, screenH) -> x, y: offsets from the screen center kept so a
+-- frame of w x h stays on a screenW x screenH screen. A missing or broken number (NaN, infinite)
+-- is 0; a screen size of 0 (not known yet) clamps nothing. Pure, tested headless. Seen in game
+-- 2026-10-10: a drag saved x = -1003 for the group, its icons at the left edge, nothing to find.
+local function Finite(v)
+    if type(v) ~= "number" or v ~= v then return false end
+    local s = tostring(v)   -- Elune (the test runtime) says NaN == NaN and NaN < inf: the text tells
+    return not (s:find("nan", 1, true) or s:find("inf", 1, true))
+end
+
+function Groups.Clamp(x, y, w, h, screenW, screenH)
+    local function Fix(v) if Finite(v) then return v end return 0 end
+    local function Within(v, size, screen)
+        if type(screen) ~= "number" or screen <= 0 then return v end
+        local limit = math.max((screen - Fix(size)) / 2, 0)
+        return math.max(-limit, math.min(limit, v))
+    end
+    return Within(Fix(x), w, screenW), Within(Fix(y), h, screenH)
+end
+
+-- Groups.Screen() -> width, height of UIParent in its own scale (the space our offsets live in).
+function Groups.Screen()
+    local ok, w, h = pcall(UIParent.GetSize, UIParent)
+    if ok and type(w) == "number" and type(h) == "number" then return w, h end
+    return 0, 0
+end
+
+-- Anchors the frame's center on the saved offsets, pulled back onto the screen; a saved pos that
+-- needed pulling is corrected in place, so the SavedVariables say where the frame really is.
 local function Anchor(frame, pos)
+    local sw, sh = Groups.Screen()
+    local w, h = frame:GetSize()
+    local x, y = Groups.Clamp(pos and pos.x, pos and pos.y, w, h, sw, sh)
+    if pos and (pos.x ~= x or pos.y ~= y) then pos.x, pos.y = x, y end
     frame:ClearAllPoints()
-    frame:SetPoint("CENTER", UIParent, "CENTER", pos and pos.x or 0, pos and pos.y or 0)
+    frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    pcall(frame.SetClampedToScreen, frame, true)   -- the engine's own guard, whatever the math did
 end
 
 -- SavePos(frame, holder): writes holder.pos from the frame's center, as offsets from the screen
--- center, then re-anchors the frame on it (whatever point a drag left it on).
+-- center (both read in UIParent's scale), then re-anchors the frame on it (whatever point a drag
+-- left it on). Anchor pulls the offsets back onto the screen before they are kept.
 local function SavePos(frame, holder)
     local cx, cy = frame:GetCenter()
     local ux, uy = UIParent:GetCenter()
     if not cx or not ux then return end
+    local okF, fs = pcall(frame.GetEffectiveScale, frame)
+    local okU, us = pcall(UIParent.GetEffectiveScale, UIParent)
+    if okF and okU and type(fs) == "number" and type(us) == "number" and us > 0 then cx, cy = cx * fs / us, cy * fs / us end
     holder.pos = { x = math.floor(cx - ux + 0.5), y = math.floor(cy - uy + 0.5) }
     Anchor(frame, holder.pos)
 end
@@ -145,6 +183,11 @@ function Groups.Parent(groupId)
         f:SetSize(36, 36)
         f.groupID = groupId
         frames[groupId] = f
+    end
+    -- A new definition under a known id (the first time; /context reset then a preset in the same
+    -- session): anchor on its pos and make it the table Edit Mode saves into, not the one reset threw away.
+    if f.def ~= def then
+        f.def = def
         Anchor(f, def.pos)
         Register(f, def.name or groupId, def)
     end
@@ -241,7 +284,6 @@ function Groups.SetEditMode(on)
     editing = on and true or false
     ForEachMovable(function(frame, label, holder)
         frame:SetMovable(editing)
-        frame:SetClampedToScreen(editing)
         local h = Handle(frame, label, holder)
         h:SetShown(editing)
         if editing and not frame:IsShown() then frame:Show(); h.wasHidden = true

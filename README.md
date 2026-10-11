@@ -13,7 +13,9 @@ spell and its aura, in and out of combat. A display's states carry actions (`Act
 color, show or hide while the state holds; a sound, spoken text, a screen message or a chat line
 once when it flips, and only when Lua decided it (a hidden value never makes a sound).
 `/context editor` lists the displays, shows each state as a sentence with how it was decided, and
-adds states from ready-made conditions and actions to them. `/context tests` opens the
+adds states from ready-made conditions and actions to them. `/context why [displayId]` prints
+what decides whether a display can be seen (size, anchor, parent, alpha, shown state, its center
+against the screen). `/context tests` opens the
 step-by-step in-game test guide (the rows of `docs/verified-in-game.md`; answers saved in
 `ContextDB.testGuide`).
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Displays you can't find (2026-10-10, first in-game session: one icon on screen out of seven
+  "shown", then a drag saved the cooldown group at x = -1003, the left edge): a group or a
+  standalone display is anchored with its center pulled back onto the screen, a drop beyond an
+  edge is kept at the edge, a saved position from before is corrected in the SavedVariables, and
+  the frames are clamped to the screen by the engine as well; after `/context reset` a preset
+  installed in the same session keeps saving its positions. `/context why [displayId]` prints a
+  display's size, anchor, parent, alpha, shown state and center against the screen (and its
+  group's); `/context list` ends each line with the size and whether the frame is on screen.
 - Cooldown Manager hooks reviewed against Blizzard's source (spec criterion 8, 2026-10-10): an
   item is bound to its spell when Blizzard sets its cooldown ID (the frame is acquired before
   that) and forgotten when the frame is released; a proc glow event only counts for the item's own
