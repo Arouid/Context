@@ -263,6 +263,13 @@ local function Refresh(entry, feed)
     local baseLook = Looks.Merge(Looks.Default(def.type), def.look)
     local look = Looks.Resolve(def.type, def.look, stateLooks)
     entry.frame:SetLook(look)
+    -- The look just gave the frame its size; the group's layout read it earlier, when a new frame
+    -- still answered 0 (seen in game 2026-10-10: five icons stacked on one point). Lay out again
+    -- whenever the size changed: once at the first refresh, again when a look changes it.
+    if def.group and ns.Groups then
+        local w, h = entry.frame:GetSize()
+        if w ~= entry.w or h ~= entry.h then entry.w, entry.h = w, h; ns.Groups.Layout(def.group) end
+    end
     if def.type == "bar" then ApplyBar(entry, snaps, inputs, look, baseLook, feed) else ApplyIcon(entry, snaps, inputs, look, feed) end
 end
 
