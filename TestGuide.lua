@@ -16,7 +16,8 @@ local Guide = {}
 ns.TestGuide = Guide
 
 local GROUPS = { { "T", "Anywhere" }, { "F", "Near mobs" }, { "D", "Dungeon" } }
-local RESULTS = { ok = "|cff40ff40as expected|r", bad = "|cffff6060not as expected|r", skip = "|cff8c8c8cskipped|r" }
+local RESULTS = { ok = "|cff40ff40as expected|r", bad = "|cffff6060not as expected|r", unsure = "|cffffd100not sure|r",
+    skip = "|cff8c8c8cskipped|r" }
 local W, H, BODY_W = 600, 560, 568
 local MAX_OUTPUT = 40   -- lines of a button's output kept with an answer
 local WHITE = "Interface\\Buttons\\WHITE8x8"
@@ -45,7 +46,7 @@ end
 
 local function Answered(step)
     local r = Data().results[step[1]]
-    return r ~= nil and (r.result == "ok" or r.result == "bad")
+    return r ~= nil and (r.result == "ok" or r.result == "bad" or r.result == "unsure")
 end
 
 local function Counts(letter)
@@ -275,7 +276,9 @@ local function AnswerRows(w)
     w.note:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     local ok = Button(w, "As expected", 130, function() Answer("ok") end)
     ok:SetPoint("BOTTOMLEFT", 12, 42)
-    Button(w, "Not as expected", 150, function() Answer("bad") end):SetPoint("LEFT", ok, "RIGHT", 8, 0)
+    local bad = Button(w, "Not as expected", 150, function() Answer("bad") end)
+    bad:SetPoint("LEFT", ok, "RIGHT", 8, 0)
+    Button(w, "Not sure", 90, function() Answer("unsure") end):SetPoint("LEFT", bad, "RIGHT", 8, 0)   -- counts as answered
     Button(w, "Skip for now", 120, function() Answer("skip") end):SetPoint("BOTTOMRIGHT", -12, 42)
     local back = Button(w, "< Back", 70, function() Step(-1) end)
     back:SetPoint("BOTTOMLEFT", 12, 10)
